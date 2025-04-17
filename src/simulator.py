@@ -3,6 +3,7 @@ import cv2
 import numpy as np
 import keyboard
 import pathlib
+import threading
 
 # TODO: make the clock faster 
 
@@ -401,9 +402,7 @@ def display_screen(cpu: CPU, start: int = 0x1000, debug: bool = False) -> bool:
     
     if debug:
         print(f"row:\t{cpu.memory[0x1409]}", 
-            f"col:\t{cpu.memory[0x140A] // 8}", 
-            f"shift:\t{bin(cpu.memory[0x140B])[2:].zfill(8)}", 
-            f"mod:\t{cpu.memory[0x140C]}", 
+            f"col:\t{cpu.memory[0x140A] // 8}",
             f"x:\t{cpu.x}", 
             f"a:\t{cpu.a}", 
             f"b:\t{cpu.b}", 
@@ -411,12 +410,12 @@ def display_screen(cpu: CPU, start: int = 0x1000, debug: bool = False) -> bool:
     
     return False
     
-def register_keys(cpu: CPU) -> None:
+def register_keys(cpu: CPU, start: int = 0x1400) -> None:
     for i, key in enumerate(keys):
         if keyboard.is_pressed(key):
-            cpu.memory[0x1400 + i] = 1
+            cpu.memory[start + i] = 1
         else:
-            cpu.memory[0x1400 + i] = 0
+            cpu.memory[start + i] = 0
 
 def main() -> None:
     path = pathlib.Path(__file__).parent.joinpath('output')
@@ -436,7 +435,8 @@ def main() -> None:
 
 if __name__ == "__main__":
     buffer = np.zeros((32, 32, 3), dtype=np.uint8)
-    keys = ['up','left','down','right','w','a','s','d','space']
+    keys = ['up','left','down','right']
+
 
     cv2.namedWindow("pixels", cv2.WINDOW_AUTOSIZE)
 

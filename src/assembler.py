@@ -98,6 +98,7 @@ def process_asm(lines: list[str]) -> None:
     already_checked = {}
 
     running_address = 0x0000
+    
     # first pass: assembler directives
     for line_num, line in enumerate(lines):
         label, instruction = re.match(instruction_format, line).groups()
@@ -121,6 +122,9 @@ def process_asm(lines: list[str]) -> None:
 
                         for i in range(len(arguments)):
                             num = arguments[i]
+                            if (running_address + i) in memory:
+                                raise ValueError(f"Address ${running_address + i:04X} already defined in memory")
+                            
                             memory[running_address + i] = int(num[1:], 16) if num.startswith("$") else int(num)
 
                         running_address += len(arguments)
@@ -130,6 +134,8 @@ def process_asm(lines: list[str]) -> None:
                         size = int(argument[1:], 16) if argument.startswith("$") else int(argument)
 
                         for i in range(size):
+                            if (running_address + i) in memory:
+                                raise ValueError(f"Address ${running_address + i:04X} already defined in memory")
                             memory[running_address + i] = 0
                       
                         running_address += size
@@ -138,7 +144,6 @@ def process_asm(lines: list[str]) -> None:
                         continue
 
                 break
-    
     
     prev_running_address = running_address
 
@@ -222,7 +227,8 @@ BEGIN
 
             if last_location <= 0x0FFF and location > 0x0FFF:
                 rom += f"[{hexify(last_location)}..0FFF] : 00;\n"
-                ram += f"[0000..{hexify(location - 0x1001)}] : 00;\n"
+                if location != 0x1000:
+                    ram += f"[0000..{hexify(location - 0x1001)}] : 00;\n"
             elif last_location <= 0x0FFF:
                 rom += f"[{hexify(last_location)}..{hexify(location-1)}] : 00;\n"
             else:
