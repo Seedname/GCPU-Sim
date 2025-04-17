@@ -60,15 +60,6 @@ class CPU:
             0x21: Instruction.bne,
             0x22: Instruction.bn,
             0x23: Instruction.bp,
-
-            0x32: Instruction.ldaabx,
-            0x33: Instruction.ldaaby,
-            0x34: Instruction.ldabax,
-            0x35: Instruction.ldabay,
-            0x36: Instruction.staabx,
-            0x37: Instruction.staaby,
-            0x38: Instruction.stabax,
-            0x39: Instruction.stabay,
         }
 
     def load_memory_file(self, filename: str, offset: int):
@@ -395,37 +386,6 @@ class Instruction:
         else:
             cpu.pc += 1
 
-    def ldaabx(cpu: CPU):
-        cpu.a = cpu.memory[cpu.x + cpu.b]
-        cpu.pc += 1
-    
-    def ldaaby(cpu: CPU):
-        cpu.a = cpu.memory[cpu.y + cpu.b]
-        cpu.pc += 1
-    
-    def ldabax(cpu: CPU):
-        cpu.b = cpu.memory[cpu.x + cpu.a]
-        cpu.pc += 1
-    
-    def ldabay(cpu: CPU):
-        cpu.b = cpu.memory[cpu.y + cpu.a]
-        cpu.pc += 1
-    
-    def staabx(cpu: CPU):
-        cpu.memory[cpu.x + cpu.b] = cpu.a
-        cpu.pc += 1
-    
-    def staaby(cpu: CPU):
-        cpu.memory[cpu.y + cpu.b] = cpu.a
-        cpu.pc += 1
-
-    def stabax(cpu: CPU):
-        cpu.memory[cpu.x + cpu.a] = cpu.b
-        cpu.pc += 1
-    
-    def stabay(cpu: CPU):
-        cpu.memory[cpu.y + cpu.a] = cpu.b
-        cpu.pc += 1
 
 def display_info(cpu: CPU) -> None:
     print("Expr\tValue\tMemory")
@@ -522,7 +482,7 @@ def main() -> None:
     clock_cpu_threaded.start()
     register_keys_threaded.start()
     
-    display_screen_2bit(cpu, debug=True)
+    display_screen_2bit(cpu)
 
     cv2.destroyAllWindows()
 

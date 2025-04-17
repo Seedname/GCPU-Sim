@@ -20,17 +20,6 @@ asm_map = {
     r"^ldx\s+(\$?[a-z0-9_]+)$": [0x0A, "ll", "hh"],
     r"^ldy\s+(\$?[a-z0-9_]+)$": [0x0B, "ll", "hh"],
 
-    # extra data movement instructions (load/store from pointer plus offset of register) 
-    r"^ldaa\s+b,x$": [0x32],
-    r"^ldaa\s+b,y$": [0x33],
-    r"^ldab\s+a,x$": [0x34],
-    r"^ldab\s+a,y$": [0x35],
-    
-    r"^staa\s+b,x$": [0x36],
-    r"^staa\s+b,y$": [0x37],
-    r"^stab\s+a,x$": [0x38],
-    r"^stab\s+a,y$": [0x39],
-
     # regular data movement instructions
     r"^ldaa\s+(\$?[a-z0-9_]+),x$": [0x0C, "dd"],
     r"^ldaa\s+(\$?[a-z0-9_]+),y$": [0x0D, "dd"],
