@@ -18,26 +18,7 @@ temp:   dc.b    $80
 mod:    dc.b    0
 
 neg1:   equ     $FF
-neg2:   equ     $FE
-neg3:   equ     $FD
-neg4:   equ     $FC
-neg5:   equ     $FB
-neg6:   equ     $FA
-neg7:   equ     $F9
 neg8:   equ     $F8
-
-neg32:  equ     $E0
-
-
-
-;0000 0000
-;0000 0010
-;0000 0100
-;0000 1000
-;0001 0000
-;0010 0000
-;0100 0000
-;1000 0000
 
 main: 
     org 0
@@ -58,9 +39,6 @@ readKeys:
     ldy #down
     ldaa 0,y
     bne moveDown
-
-    @ ldaa #0
-    @ beq readKeys
     
 continue:
     @ load a with the row

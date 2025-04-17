@@ -2,6 +2,9 @@ import re
 import cv2
 import numpy as np
 import keyboard
+import pathlib
+
+# TODO: make the clock faster 
 
 class CPU:
     def __init__(self, rom: str = "rom.mif", ram: str = "ram.mif"):
@@ -381,9 +384,9 @@ def display_info(cpu: CPU) -> None:
     print("Expr\tValue\tMemory")
     print(f"PC:\t${cpu.pc:04X}\t${cpu.memory[cpu.pc]:02X}\nA:\t${cpu.a:02X}\nB:\t${cpu.b:02X}\nX:\t${cpu.x:04X}\t${cpu.memory[cpu.x]:02X}\nY:\t${cpu.y:04X}\t${cpu.memory[cpu.y]:02X}")
 
-def display_screen(cpu: CPU, start: int = 0x1000) -> bool:
+def display_screen(cpu: CPU, start: int = 0x1000, debug: bool = False) -> bool:
     for i in range(128):
-        byte = cpu.memory[0x1000 + i]
+        byte = cpu.memory[start + i]
         for j in range(8):
             val = i * 8 + j
             bit = (byte >> (7 - j)) & 1
@@ -396,14 +399,15 @@ def display_screen(cpu: CPU, start: int = 0x1000) -> bool:
     if key == 'q':
         return True
     
-    # print(f"row:\t{cpu.memory[0x1409]}", 
-    #       f"col:\t{cpu.memory[0x140A] // 8}", 
-    #       f"shift:\t{bin(cpu.memory[0x140B])[2:].zfill(8)}", 
-    #       f"mod:\t{cpu.memory[0x140C]}", 
-    #       f"x:\t{cpu.x}", 
-    #       f"a:\t{cpu.a}", 
-    #       f"b:\t{cpu.b}", 
-    #       sep="\n", end="\n\n")
+    if debug:
+        print(f"row:\t{cpu.memory[0x1409]}", 
+            f"col:\t{cpu.memory[0x140A] // 8}", 
+            f"shift:\t{bin(cpu.memory[0x140B])[2:].zfill(8)}", 
+            f"mod:\t{cpu.memory[0x140C]}", 
+            f"x:\t{cpu.x}", 
+            f"a:\t{cpu.a}", 
+            f"b:\t{cpu.b}", 
+            sep="\n", end="\n\n")
     
     return False
     
@@ -415,7 +419,8 @@ def register_keys(cpu: CPU) -> None:
             cpu.memory[0x1400 + i] = 0
 
 def main() -> None:
-    cpu = CPU()
+    path = pathlib.Path(__file__).parent.joinpath('output')
+    cpu = CPU(rom=path.joinpath('rom.mif'), ram=path.joinpath('ram.mif'))
 
     while True:
         stop = display_screen(cpu)

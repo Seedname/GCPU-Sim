@@ -2,6 +2,8 @@
 # -*- coding: utf-8 -*-
 
 import re
+import pathlib
+# TODO: make this a cli tool, clean up the code
 
 asm_map = {
     # Data Movement Instructions
@@ -242,19 +244,21 @@ BEGIN
                 ram += f"[{hexify(last_location - 0x1000)}..0FFF] : 00;\n"
                 
 
-    with open('rom.mif', 'w') as f:
+    path = pathlib.Path(__file__).parent.joinpath('output')
+    with open(path.joinpath('rom.mif'), 'w') as f:
         f.write(header)
         f.write(rom)
         f.write("\nEND;\n")
 
-    with open('ram.mif', 'w') as f:
+    with open(path.joinpath('ram.mif'), 'w') as f:
         f.write(header)
         f.write(ram)
         f.write("\nEND;\n")
 
 
 def main() -> None:
-    filename = "program.asm"
+    path = pathlib.Path(__file__).parent
+    filename = path.joinpath("program", "program.asm")
     lines = read_asm(filename)
     process_asm(lines)
 
