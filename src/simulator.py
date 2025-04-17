@@ -60,6 +60,15 @@ class CPU:
             0x21: Instruction.bne,
             0x22: Instruction.bn,
             0x23: Instruction.bp,
+
+            0x32: Instruction.ldaabx,
+            0x33: Instruction.ldaaby,
+            0x34: Instruction.ldabax,
+            0x35: Instruction.ldabay,
+            0x36: Instruction.staabx,
+            0x37: Instruction.staaby,
+            0x38: Instruction.stabax,
+            0x39: Instruction.stabay,
         }
 
     def load_memory_file(self, filename: str, offset: int):
@@ -222,7 +231,10 @@ class Instruction:
         upper = cpu.get_memory()
 
         address = (upper << 8) | lower
-        cpu.x = cpu.memory[address]
+
+        lower = cpu.memory[address]
+        upper = (cpu.memory[address + 1] << 8)
+        cpu.x = lower | upper
 
         cpu.pc += 1
     
@@ -235,7 +247,9 @@ class Instruction:
         upper = cpu.get_memory()
 
         address = (upper << 8) | lower
-        cpu.y = cpu.memory[address]
+        lower = cpu.memory[address]
+        upper = (cpu.memory[address + 1] << 8)
+        cpu.y = lower | upper
 
         cpu.pc += 1
 
@@ -381,6 +395,38 @@ class Instruction:
         else:
             cpu.pc += 1
 
+    def ldaabx(cpu: CPU):
+        cpu.a = cpu.memory[cpu.x + cpu.b]
+        cpu.pc += 1
+    
+    def ldaaby(cpu: CPU):
+        cpu.a = cpu.memory[cpu.y + cpu.b]
+        cpu.pc += 1
+    
+    def ldabax(cpu: CPU):
+        cpu.b = cpu.memory[cpu.x + cpu.a]
+        cpu.pc += 1
+    
+    def ldabay(cpu: CPU):
+        cpu.b = cpu.memory[cpu.y + cpu.a]
+        cpu.pc += 1
+    
+    def staabx(cpu: CPU):
+        cpu.memory[cpu.x + cpu.b] = cpu.a
+        cpu.pc += 1
+    
+    def staaby(cpu: CPU):
+        cpu.memory[cpu.y + cpu.b] = cpu.a
+        cpu.pc += 1
+
+    def stabax(cpu: CPU):
+        cpu.memory[cpu.x + cpu.a] = cpu.b
+        cpu.pc += 1
+    
+    def stabay(cpu: CPU):
+        cpu.memory[cpu.y + cpu.a] = cpu.b
+        cpu.pc += 1
+
 def display_info(cpu: CPU) -> None:
     print("Expr\tValue\tMemory")
     print(f"PC:\t${cpu.pc:04X}\t${cpu.memory[cpu.pc]:02X}\nA:\t${cpu.a:02X}\nB:\t${cpu.b:02X}\nX:\t${cpu.x:04X}\t${cpu.memory[cpu.x]:02X}\nY:\t${cpu.y:04X}\t${cpu.memory[cpu.y]:02X}")
@@ -415,6 +461,39 @@ def display_screen(cpu: CPU, start: int = 0x1000, debug: bool = False) -> bool:
                 f"b:\t{cpu.b}", 
                 sep="\n", end="\n\n")
 
+
+def display_screen_2bit(cpu: CPU, start: int = 0x1000, debug: bool = False) -> bool:
+    display_map = [(0, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 255)]
+    while True:
+        for i in range(256):
+            byte = cpu.memory[start + i]
+            for j in range(0, 8, 2):
+                val = i * 4 + j // 2
+                high_bit = ((byte >> (7 - j)) & 1) << 1
+                low_bit =  (byte >> (7 - (j + 1))) & 1
+
+                buffer[val // 32, val % 32] = display_map[high_bit | low_bit]
+        
+        big = cv2.resize(
+            buffer,
+            (buffer.shape[1] * 10, buffer.shape[0] * 10),
+            interpolation=cv2.INTER_NEAREST
+        )
+
+        cv2.imshow("screen", big)
+
+        key = chr(cv2.waitKey(1) & 0xFF)
+
+        if key == 'q':
+            return True
+        
+        if debug:
+            print(f"row:\t{cpu.memory[0x1409]}", 
+                f"col:\t{cpu.memory[0x140A] // 8}",
+                f"x:\t{cpu.x}", 
+                f"a:\t{cpu.a}", 
+                f"b:\t{cpu.b}", 
+                sep="\n", end="\n\n")
     
 def register_keys(cpu: CPU, start: int = 0x1400) -> None:
     while True:
@@ -443,7 +522,7 @@ def main() -> None:
     clock_cpu_threaded.start()
     register_keys_threaded.start()
     
-    display_screen(cpu)
+    display_screen_2bit(cpu, debug=True)
 
     cv2.destroyAllWindows()
 

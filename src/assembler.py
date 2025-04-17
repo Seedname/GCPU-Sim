@@ -19,6 +19,19 @@ asm_map = {
     r"^ldy\s+#(\$?[a-z0-9_]+)$": [0x09, "ii", "jj"],
     r"^ldx\s+(\$?[a-z0-9_]+)$": [0x0A, "ll", "hh"],
     r"^ldy\s+(\$?[a-z0-9_]+)$": [0x0B, "ll", "hh"],
+
+    # extra data movement instructions (load/store from pointer plus offset of register) 
+    r"^ldaa\s+b,x$": [0x32],
+    r"^ldaa\s+b,y$": [0x33],
+    r"^ldab\s+a,x$": [0x34],
+    r"^ldab\s+a,y$": [0x35],
+    
+    r"^staa\s+b,x$": [0x36],
+    r"^staa\s+b,y$": [0x37],
+    r"^stab\s+a,x$": [0x38],
+    r"^stab\s+a,y$": [0x39],
+
+    # regular data movement instructions
     r"^ldaa\s+(\$?[a-z0-9_]+),x$": [0x0C, "dd"],
     r"^ldaa\s+(\$?[a-z0-9_]+),y$": [0x0D, "dd"],
     r"^ldab\s+(\$?[a-z0-9_]+),x$": [0x0E, "dd"],
@@ -27,6 +40,7 @@ asm_map = {
     r"^staa\s+(\$?[a-z0-9_]+),y$": [0x11, "dd"],
     r"^stab\s+(\$?[a-z0-9_]+),x$": [0x12, "dd"],
     r"^stab\s+(\$?[a-z0-9_]+),y$": [0x13, "dd"],
+
     # ALU Related Instructions
     r"^sum_ba$": [0x14],
     r"^sum_ab$": [0x15],
@@ -264,7 +278,7 @@ BEGIN
 
 def main() -> None:
     path = pathlib.Path(__file__).parent
-    filename = path.joinpath("program", "etch-a-sketch.asm")
+    filename = path.joinpath("program", "program.asm")
     lines = read_asm(filename)
     process_asm(lines)
 

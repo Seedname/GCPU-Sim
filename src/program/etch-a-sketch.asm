@@ -11,7 +11,7 @@ right:  equ     $1403
 org $1409           ; 0x1409 to 0x140B for the variables
 row:    dc.b    0
 col:    dc.b    0
-temp:   dc.b    $80
+mask:   dc.b    $80
 
 neg1:   equ     $FF
 neg8:   equ     $F8
@@ -87,22 +87,22 @@ getMod:
     sum_ba
 
     ldab #$80 ; 1000 0000 bitmask
-    stab temp
+    stab mask
     
     beq writeScreen ; dont modify the bitmask if the modulus is 0
 
     @ shift right to get the bitmask
 getMask:
-    ldab temp
+    ldab mask
     shfb_r
-    stab temp
+    stab mask
     ldab #neg1
     sum_ba
     bne getMask ; if modulus zero, keep going
 
 writeScreen:
     @ load bitmask into a, and the screen into b
-    ldaa temp
+    ldaa mask
     ldab 0,x
 
     or_ba ; add the bitmask to the screen
