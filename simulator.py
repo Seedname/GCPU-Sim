@@ -178,6 +178,7 @@ class Instruction:
         upper = cpu.get_memory()
 
         address = (upper << 8) | lower
+
         cpu.memory[address] = cpu.b
 
         cpu.pc += 1
@@ -380,12 +381,13 @@ def display_info(cpu: CPU) -> None:
     print("Expr\tValue\tMemory")
     print(f"PC:\t${cpu.pc:04X}\t${cpu.memory[cpu.pc]:02X}\nA:\t${cpu.a:02X}\nB:\t${cpu.b:02X}\nX:\t${cpu.x:04X}\t${cpu.memory[cpu.x]:02X}\nY:\t${cpu.y:04X}\t${cpu.memory[cpu.y]:02X}")
 
-def display_screen(cpu: CPU) -> bool:
+def display_screen(cpu: CPU, start: int = 0x1000) -> bool:
     for i in range(128):
         byte = cpu.memory[0x1000 + i]
         for j in range(8):
+            val = i * 8 + j
             bit = (byte >> (7 - j)) & 1
-            buffer[i % 32, i // 32] = (0,0,0) if bit == 0 else (255, 255, 255)
+            buffer[val // 32, val % 32] = (0,0,0) if bit == 0 else (255, 255, 255)
 
     cv2.imshow("pixels", buffer)
 
@@ -393,7 +395,16 @@ def display_screen(cpu: CPU) -> bool:
 
     if key == 'q':
         return True
-    print(cpu.memory[0x1409], cpu.memory[0x140A], bin(cpu.memory[0x140B])[2:].zfill(8), cpu.x, cpu.a)
+    
+    # print(f"row:\t{cpu.memory[0x1409]}", 
+    #       f"col:\t{cpu.memory[0x140A] // 8}", 
+    #       f"shift:\t{bin(cpu.memory[0x140B])[2:].zfill(8)}", 
+    #       f"mod:\t{cpu.memory[0x140C]}", 
+    #       f"x:\t{cpu.x}", 
+    #       f"a:\t{cpu.a}", 
+    #       f"b:\t{cpu.b}", 
+    #       sep="\n", end="\n\n")
+    
     return False
     
 def register_keys(cpu: CPU) -> None:

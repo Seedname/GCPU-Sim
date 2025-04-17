@@ -14,7 +14,8 @@ right:  equ     $1403
 org $1409
 row:    dc.b    0
 col:    dc.b    0
-temp:   dc.b    1
+temp:   dc.b    $80
+mod:    dc.b    0
 
 neg1:   equ     $FF
 neg2:   equ     $FE
@@ -24,6 +25,10 @@ neg5:   equ     $FB
 neg6:   equ     $FA
 neg7:   equ     $F9
 neg8:   equ     $F8
+
+neg32:  equ     $E0
+
+
 
 ;0000 0000
 ;0000 0010
@@ -38,14 +43,6 @@ main:
     org 0
 
 readKeys:
-    ldy #up
-    ldaa 0,y
-    bne moveUp
-
-    ldy #down
-    ldaa 0,y
-    bne moveDown
-
     ldy #left
     ldaa 0,y
     bne moveLeft
@@ -54,71 +51,137 @@ readKeys:
     ldaa 0,y
     bne moveRight
 
+    ldy #up
+    ldaa 0,y
+    bne moveUp
+
+    ldy #down
+    ldaa 0,y
+    bne moveDown
+
+    @ ldaa #0
+    @ beq readKeys
+    
 continue:
-    @ load a with the column
+    @ load a with the row
     ldaa row
     ldx #screen
+    beq afterGetRow
+    ldab #neg1
 
 getRow:
-    @ increment x pointer row times
+    @ increment x pointer row * 4 times
     inx
-    ldab #neg1
-    sum_ba
-    bne getRow
+    inx
+    inx
+    inx
+  
+    sum_ba ; decrement a
 
-    @ get bit mask by shifting 1 left by the column    
-    ldab #1
-    stab temp
+    bne getRow ; if not zero, keep going
+
+afterGetRow:
+    @ load a with the col
     ldaa col
+    
+    @ get box by dividing by 8
+    shfa_r
+    shfa_r
+    shfa_r
 
+    @ move x pointer to the box
+    beq afterGetCol
+    ldab #neg1
+
+getCol:
+    inx
+    sum_ba
+    bne getCol
+
+afterGetCol:
+    @ find the col % 8
+    ldaa col
+    ldab #neg8
+
+getMod:
+    sum_ba
+    @ if still positive, keep subtracting
+    bp getMod
+
+    @ if negative, add an 8 to get the mod
+    ldab #8
+    sum_ba
+
+    staa mod
+
+    ldab #$80 ; 1000 0000 bitmask
+    stab temp
+    
+    beq writeScreen ; dont modify the bitmask if the modulus is 0
+
+    @ shift right to get the bitmask
 getMask:
     ldab temp
-    shfl_b
+    shfb_r
     stab temp
     ldab #neg1
     sum_ba
-    bne getMask
+    bne getMask ; if modulus zero, keep going
 
-    @ add bitmask to screen
+writeScreen:
+    @ load bitmask into a, and the screen into b
     ldaa temp
+    ldab 0,x
+
+    or_ba ; add the bitmask to the screen
     staa 0,x
 
     ldaa #0
     beq readKeys
 
 moveUp:
-    @ when moving up, subtract 4 from the row
+    @ when moving up, subtract 1 from the row
     ldaa row
-    ldab #neg4
+    ldab #neg1
     sum_ba
+
+    @ clip at 31
+    ldab #31
+    and_ba
+
     staa row
 
     ldaa #0
     beq continue
 
 moveDown:
-    @ when moving down, add 4 to the row
+    @ when moving down, add 1 to the row
     ldaa row
-    ldab #4
+    ldab #1
     sum_ba
+
+    @ clip at 31
+    ldab #31
+    and_ba
+
     staa row
 
     ldaa #0
     beq continue
 
 moveLeft:
-    @ when moving left, subtract 1 from the column
-
+    @ when moving left, subtract 1 from the column, and wrap around to 31
     ldaa col
+
+    @ if column == 0, wrap around to 31
+    ldab #31
+    stab col
+
+    beq continue
+
+    @ else, subtract 1 from the column
     ldab #neg1
     sum_ba
-    staa col
-
-    @ if column is positive, continue
-    bp continue
-
-    @ if column goes negative, wrap around to 7
-    ldaa #7
     staa col
 
     ldaa #0
@@ -130,18 +193,14 @@ moveRight:
     ldaa col
     ldab #1
     sum_ba
+
+    @ clip at 31 (if col is 32, wrap around to 0)
+    ldab #31
+    and_ba
+
     staa col
 
-    ldab #neg8
-    sum_ba
-
-    @ if column - 8 != 0, continue
-    bne continue
-
-    @ if column is 8, wrap around to 0
     ldaa #0
-    staa col
-
     beq continue
 
 exit:

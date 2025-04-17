@@ -93,14 +93,17 @@ def process_asm(lines: list[str]) -> None:
     
     macros = {}
 
+    already_checked = {}
+
     running_address = 0x0000
     # first pass: assembler directives
-    for line in lines:
+    for line_num, line in enumerate(lines):
         label, instruction = re.match(instruction_format, line).groups()
 
         for format in asm_directives:
             matches = re.match(format, instruction)
             if matches:
+                already_checked[line_num] = True
                 pnemonic, argument = matches.groups()
                 
                 match pnemonic:
@@ -134,10 +137,11 @@ def process_asm(lines: list[str]) -> None:
 
                 break
     
+    
     prev_running_address = running_address
 
     # second pass: labels to addresses
-    for line in lines:
+    for line_num, line in enumerate(lines):
         label, instruction = re.match(instruction_format, line).groups()
         
         for format in asm_map:
@@ -154,7 +158,7 @@ def process_asm(lines: list[str]) -> None:
     running_address = prev_running_address
 
     # third pass: assemble
-    for line in lines:
+    for line_num, line in enumerate(lines):
         label, instruction = re.match(instruction_format, line).groups()
 
         for format in asm_map:
@@ -182,6 +186,9 @@ def process_asm(lines: list[str]) -> None:
 
                 running_address += len(opcode)
                 break
+        else:
+            if not already_checked.get(line_num, False):
+                raise ValueError(f"Unknown instruction: {instruction}")
 
     
     header = """DEPTH = 4096;
