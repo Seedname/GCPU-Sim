@@ -4,8 +4,8 @@ import numpy as np
 import keyboard
 import pathlib
 import threading
+import time
 
-# TODO: make the clock faster 
 
 class CPU:
     def __init__(self, rom: str = "rom.mif", ram: str = "ram.mif"):
@@ -386,50 +386,64 @@ def display_info(cpu: CPU) -> None:
     print(f"PC:\t${cpu.pc:04X}\t${cpu.memory[cpu.pc]:02X}\nA:\t${cpu.a:02X}\nB:\t${cpu.b:02X}\nX:\t${cpu.x:04X}\t${cpu.memory[cpu.x]:02X}\nY:\t${cpu.y:04X}\t${cpu.memory[cpu.y]:02X}")
 
 def display_screen(cpu: CPU, start: int = 0x1000, debug: bool = False) -> bool:
-    for i in range(128):
-        byte = cpu.memory[start + i]
-        for j in range(8):
-            val = i * 8 + j
-            bit = (byte >> (7 - j)) & 1
-            buffer[val // 32, val % 32] = (0,0,0) if bit == 0 else (255, 255, 255)
+    while True:
+        for i in range(128):
+            byte = cpu.memory[start + i]
+            for j in range(8):
+                val = i * 8 + j
+                bit = (byte >> (7 - j)) & 1
+                buffer[val // 32, val % 32] = (0,0,0) if bit == 0 else (255, 255, 255)
+        
+        big = cv2.resize(
+            buffer,
+            (buffer.shape[1] * 10, buffer.shape[0] * 10),
+            interpolation=cv2.INTER_NEAREST
+        )
 
-    cv2.imshow("pixels", buffer)
+        cv2.imshow("screen", big)
 
-    key = chr(cv2.waitKey(1) & 0xFF)
+        key = chr(cv2.waitKey(1) & 0xFF)
 
-    if key == 'q':
-        return True
-    
-    if debug:
-        print(f"row:\t{cpu.memory[0x1409]}", 
-            f"col:\t{cpu.memory[0x140A] // 8}",
-            f"x:\t{cpu.x}", 
-            f"a:\t{cpu.a}", 
-            f"b:\t{cpu.b}", 
-            sep="\n", end="\n\n")
-    
-    return False
+        if key == 'q':
+            return True
+        
+        if debug:
+            print(f"row:\t{cpu.memory[0x1409]}", 
+                f"col:\t{cpu.memory[0x140A] // 8}",
+                f"x:\t{cpu.x}", 
+                f"a:\t{cpu.a}", 
+                f"b:\t{cpu.b}", 
+                sep="\n", end="\n\n")
+
     
 def register_keys(cpu: CPU, start: int = 0x1400) -> None:
-    for i, key in enumerate(keys):
-        if keyboard.is_pressed(key):
-            cpu.memory[start + i] = 1
-        else:
-            cpu.memory[start + i] = 0
+    while True:
+        for i, key in enumerate(keys):
+            if keyboard.is_pressed(key):
+                cpu.memory[start + i] = 1
+            else:
+                cpu.memory[start + i] = 0
+
+def clock_cpu(cpu: CPU) -> None:
+    next_clock = time.monotonic_ns()
+    while True:
+        next_clock += 500_000
+        cpu.clock()
+
+        while time.monotonic_ns() < next_clock:
+            pass
 
 def main() -> None:
     path = pathlib.Path(__file__).parent.joinpath('output')
     cpu = CPU(rom=path.joinpath('rom.mif'), ram=path.joinpath('ram.mif'))
 
-    while True:
-        stop = display_screen(cpu)
-
-        if stop:
-            break
-        
-        register_keys(cpu)
-
-        cpu.clock()
+    clock_cpu_threaded = threading.Thread(target=clock_cpu, args=(cpu,), daemon=True)
+    register_keys_threaded = threading.Thread(target=register_keys, args=(cpu,), daemon=True)
+    
+    clock_cpu_threaded.start()
+    register_keys_threaded.start()
+    
+    display_screen(cpu)
 
     cv2.destroyAllWindows()
 
@@ -437,7 +451,17 @@ if __name__ == "__main__":
     buffer = np.zeros((32, 32, 3), dtype=np.uint8)
     keys = ['up','left','down','right']
 
+    cv2.namedWindow(
+        'screen',
+        cv2.WINDOW_NORMAL    |
+        cv2.WINDOW_GUI_NORMAL
+    )
+    cv2.setWindowProperty(
+        'screen',
+        cv2.WND_PROP_ASPECT_RATIO,
+        cv2.WINDOW_KEEPRATIO
+    )
 
-    cv2.namedWindow("pixels", cv2.WINDOW_AUTOSIZE)
+    cv2.resizeWindow('screen', 320, 320)
 
     main()
