@@ -105,6 +105,10 @@ class CPU:
     def get_memory(self) -> int:
         return self.memory[self.pc % 0x2000]
     
+    def inc_pc(self) -> None:
+        self.pc += 1
+        self.pc %= 0x2000
+    
     def clock(self):
         instruction = self.get_memory()
 
@@ -117,66 +121,66 @@ class CPU:
 class Instruction:
     def tab(cpu: CPU):
         cpu.b = cpu.a
-        cpu.pc += 1
+        cpu.inc_pc()
 
     def tba(cpu: CPU):
         cpu.a = cpu.b
-        cpu.pc += 1
+        cpu.inc_pc()
 
     def ldaai(cpu: CPU):
-        cpu.pc += 1
+        cpu.inc_pc()
         cpu.a = cpu.get_memory()
-        cpu.pc += 1
+        cpu.inc_pc()
     
     def ldabi(cpu: CPU):
-        cpu.pc += 1
+        cpu.inc_pc()
         cpu.b = cpu.get_memory()
-        cpu.pc += 1
+        cpu.inc_pc()
 
     def ldaa(cpu: CPU):
-        cpu.pc += 1
+        cpu.inc_pc()
         
         lower = cpu.get_memory()
-        cpu.pc += 1
+        cpu.inc_pc()
 
         upper = cpu.get_memory()
 
         address = (upper << 8) | lower
         cpu.a = cpu.memory[address]
 
-        cpu.pc += 1
+        cpu.inc_pc()
     
     def ldab(cpu: CPU):
-        cpu.pc += 1
+        cpu.inc_pc()
         
         lower = cpu.get_memory()
-        cpu.pc += 1
+        cpu.inc_pc()
 
         upper = cpu.get_memory()
 
         address = (upper << 8) | lower
         cpu.b = cpu.memory[address]
 
-        cpu.pc += 1
+        cpu.inc_pc()
     
     def staa(cpu: CPU):
-        cpu.pc += 1
+        cpu.inc_pc()
         
         lower = cpu.get_memory()
-        cpu.pc += 1
+        cpu.inc_pc()
 
         upper = cpu.get_memory()
 
         address = (upper << 8) | lower
         cpu.memory[address] = cpu.a
 
-        cpu.pc += 1
+        cpu.inc_pc()
     
     def stab(cpu: CPU):
-        cpu.pc += 1
+        cpu.inc_pc()
         
         lower = cpu.get_memory()
-        cpu.pc += 1
+        cpu.inc_pc()
 
         upper = cpu.get_memory()
 
@@ -184,39 +188,39 @@ class Instruction:
 
         cpu.memory[address] = cpu.b
 
-        cpu.pc += 1
+        cpu.inc_pc()
 
     def ldxi(cpu: CPU):
-        cpu.pc += 1
+        cpu.inc_pc()
         
         lower = cpu.get_memory()
-        cpu.pc += 1
+        cpu.inc_pc()
 
         upper = cpu.get_memory()
 
         value = (upper << 8) | lower
         cpu.x = value
 
-        cpu.pc += 1
+        cpu.inc_pc()
     
     def ldyi(cpu: CPU):
-        cpu.pc += 1
+        cpu.inc_pc()
         
         lower = cpu.get_memory()
-        cpu.pc += 1
+        cpu.inc_pc()
 
         upper = cpu.get_memory()
 
         value = (upper << 8) | lower
         cpu.y = value
 
-        cpu.pc += 1
+        cpu.inc_pc()
     
     def ldx(cpu: CPU):
-        cpu.pc += 1
+        cpu.inc_pc()
         
         lower = cpu.get_memory()
-        cpu.pc += 1
+        cpu.inc_pc()
 
         upper = cpu.get_memory()
 
@@ -226,13 +230,13 @@ class Instruction:
         upper = (cpu.memory[address + 1] << 8)
         cpu.x = lower | upper
 
-        cpu.pc += 1
+        cpu.inc_pc()
     
     def ldy(cpu: CPU):
-        cpu.pc += 1
+        cpu.inc_pc()
         
         lower = cpu.get_memory()
-        cpu.pc += 1
+        cpu.inc_pc()
 
         upper = cpu.get_memory()
 
@@ -242,162 +246,162 @@ class Instruction:
         upper = (cpu.memory[address + 1] << 8)
         cpu.y = lower | upper
 
-        cpu.pc += 1
+        cpu.inc_pc()
 
     def ldaax(cpu: CPU):
-        cpu.pc += 1
+        cpu.inc_pc()
         displacement = cpu.get_memory()
         cpu.a = cpu.memory[cpu.x + displacement]
-        cpu.pc += 1
+        cpu.inc_pc()
     
     def ldaay(cpu: CPU):
-        cpu.pc += 1
+        cpu.inc_pc()
         displacement = cpu.get_memory()
         cpu.a = cpu.memory[cpu.y + displacement]
-        cpu.pc += 1
+        cpu.inc_pc()
 
     def ldabx(cpu: CPU):
-        cpu.pc += 1
+        cpu.inc_pc()
         displacement = cpu.get_memory()
         cpu.b = cpu.memory[cpu.x + displacement]
-        cpu.pc += 1
+        cpu.inc_pc()
     
     def ldaby(cpu: CPU):
-        cpu.pc += 1
+        cpu.inc_pc()
         displacement = cpu.get_memory()
         cpu.y = cpu.memory[cpu.y + displacement]
-        cpu.pc += 1
+        cpu.inc_pc()
 
     def staax(cpu: CPU):
-        cpu.pc += 1
+        cpu.inc_pc()
         displacement = cpu.get_memory()
         cpu.memory[cpu.x + displacement] = cpu.a
-        cpu.pc += 1
+        cpu.inc_pc()
     
     def staay(cpu: CPU):
-        cpu.pc += 1
+        cpu.inc_pc()
         displacement = cpu.get_memory()
         cpu.memory[cpu.y + displacement] = cpu.a
-        cpu.pc += 1
+        cpu.inc_pc()
     
     def stabx(cpu: CPU):
-        cpu.pc += 1
+        cpu.inc_pc()
         displacement = cpu.get_memory()
         cpu.memory[cpu.x + displacement] = cpu.b
-        cpu.pc += 1
+        cpu.inc_pc()
     
     def staby(cpu: CPU):
-        cpu.pc += 1
+        cpu.inc_pc()
         displacement = cpu.get_memory()
         cpu.memory[cpu.y + displacement] = cpu.b
-        cpu.pc += 1
+        cpu.inc_pc()
 
     def sum_ba(cpu: CPU):
         cpu.a = (cpu.a + cpu.b) & 0xFF
-        cpu.pc += 1
+        cpu.inc_pc()
 
     def sum_ab(cpu: CPU):
         cpu.b = (cpu.a + cpu.b) & 0xFF
-        cpu.pc += 1
+        cpu.inc_pc()
 
     def and_ba(cpu: CPU):
         cpu.a = cpu.a & cpu.b
-        cpu.pc += 1
+        cpu.inc_pc()
     
     def and_ab(cpu: CPU):
         cpu.b = cpu.a & cpu.b
-        cpu.pc += 1
+        cpu.inc_pc()
 
     def or_ba(cpu: CPU):
         cpu.a = cpu.a | cpu.b
-        cpu.pc += 1
+        cpu.inc_pc()
     
     def or_ab(cpu: CPU):
         cpu.b = cpu.a | cpu.b
-        cpu.pc += 1
+        cpu.inc_pc()
 
     def coma(cpu: CPU):
         cpu.a = ~cpu.a
-        cpu.pc += 1
+        cpu.inc_pc()
     
     def comb(cpu: CPU):
         cpu.b = ~cpu.b
-        cpu.pc += 1
+        cpu.inc_pc()
 
     def shfa_l(cpu: CPU):
         cpu.a = (cpu.a << 1) & 0xFF
-        cpu.pc += 1
+        cpu.inc_pc()
     
     def shfa_r(cpu: CPU):
         cpu.a >>= 1
-        cpu.pc += 1
+        cpu.inc_pc()
     
     def shfb_l(cpu: CPU):
         cpu.b = (cpu.b << 1) & 0xFF
-        cpu.pc += 1
+        cpu.inc_pc()
 
     def shfb_r(cpu: CPU):
         cpu.b >>= 1
-        cpu.pc += 1
+        cpu.inc_pc()
     
     def inx(cpu: CPU):
         cpu.x = (cpu.x + 1) & 0xFFFF
-        cpu.pc += 1
+        cpu.inc_pc()
 
     def iny(cpu: CPU):
         cpu.y = (cpu.y + 1) & 0xFFFF
-        cpu.pc += 1
+        cpu.inc_pc()
 
     def beq(cpu: CPU):
-        cpu.pc += 1
+        cpu.inc_pc()
         address = cpu.get_memory()
 
         if cpu.a == 0:
             cpu.pc = address
         else:
-            cpu.pc += 1
+            cpu.inc_pc()
 
     def bne(cpu: CPU):
-        cpu.pc += 1
+        cpu.inc_pc()
         address = cpu.get_memory()
 
         if cpu.a != 0:
             cpu.pc = address
         else:
-            cpu.pc += 1
+            cpu.inc_pc()
 
     def bn(cpu: CPU):
-        cpu.pc += 1
+        cpu.inc_pc()
         address = cpu.get_memory()
 
         # check if MSB of A is 1
         if cpu.a & 0x80:
             cpu.pc = address
         else:
-            cpu.pc += 1
+            cpu.inc_pc()
         
     def bp(cpu: CPU):
-        cpu.pc += 1
+        cpu.inc_pc()
         address = cpu.get_memory()
 
         # check if MSB of A is 0
         if cpu.a & 0x80 == 0:
             cpu.pc = address
         else:
-            cpu.pc += 1
+            cpu.inc_pc()
 
 
 class Timer:
     def __init__(self):
-        self.start_time = time.monotonic()
+        self.start_time = time.perf_counter()
         self.elapsed_time = 0
     
     def __call__(self):
-        self.elapsed_time = time.monotonic() - self.start_time
+        self.elapsed_time = time.perf_counter() - self.start_time
         return self.elapsed_time
 
     def reset(self):
-        self.start_time = time.monotonic()
+        self.start_time = time.perf_counter()
         self.elapsed_time = 0
     
 def display_info(cpu: CPU, memory_locations: dict[str, int] = None) -> None:
@@ -406,7 +410,7 @@ def display_info(cpu: CPU, memory_locations: dict[str, int] = None) -> None:
     if memory_locations is None:
         locations = []
     else:
-        locations = [f"{location}:\t\t${cpu.memory[memory_locations[location]]:02X}" for location in memory_locations]
+        locations = [f"{location}:\t${memory_locations[location]:04X}\t${cpu.memory[memory_locations[location]]:02X}" for location in memory_locations]
     
     print(f"PC:\t${cpu.pc:04X}\t${cpu.memory[cpu.pc]:02X}",
           f"A:\t${cpu.a:02X}\nB:\t${cpu.b:02X}",
@@ -498,65 +502,68 @@ def register_keys(cpu: CPU, start: int = 0x1400, sticky: bool = False) -> None:
                         cpu.memory[start + i] = 0
 
             
-def clock_cpu(cpu: CPU, debug: bool = False) -> None:
-    # timer = Timer()
-    
-    # while True:
+def clock_cpu(cpu: CPU, debug: bool = False, step: bool = False) -> None:
+    target = time.perf_counter_ns()
 
-    #     if debug:
-    #         display_info(cpu, memory_locations={
-    #             'addr': 0x1413
-    #         })
-
-    #     cpu.clock()
-
-    #     while timer() <= 0.0005:
-    #         pass
-
-    #     timer.reset()
-
-    n2 = time.time()
-    target_delay = 0.001
     while True:
-        n1 = time.time()
+
+        if debug:
+            display_info(cpu, memory_locations={
+                'count': 0x1000,
+                'out1':  0x1a37,
+                'out2':  0x1a38,
+                'out3':  0x1a39
+            })
+        
         cpu.clock()
 
-        while True:
-            t = n2 - n1
-            n2 = time.time()
-            if t >= target_delay:
-                break
+        if step:
+            input()
+        else:
+            while time.perf_counter_ns() <= target:
+                pass
+
+            target = time.perf_counter_ns() + 1_000_000
 
 
-def main(debug: bool = False) -> None:
+def main(debug: bool = False, two_bit_screen: bool = False) -> None:
     path = pathlib.Path(__file__).parent.joinpath('output')
     cpu = CPU(rom=path.joinpath('rom.mif'), ram=path.joinpath('ram.mif'))
-
-    clock_cpu_threaded = threading.Thread(target=clock_cpu, args=(cpu,debug,), daemon=True)
-    register_keys_threaded = threading.Thread(target=register_keys, args=(cpu,), daemon=True)
     
-    clock_cpu_threaded.start()
-    register_keys_threaded.start()
-    
-    display_screen(cpu, debug=debug)
+    if debug:
+        clock_cpu(cpu, True, True)
+    else:
+        clock_cpu_threaded = threading.Thread(target=clock_cpu, args=(cpu,False,False), daemon=True)
+        register_keys_threaded = threading.Thread(target=register_keys, args=(cpu,), daemon=True)
+        
+        clock_cpu_threaded.start()
+        register_keys_threaded.start()
+        
+        if two_bit_screen:
+            display_screen_2bit(cpu)
+        else:
+            display_screen(cpu, debug=debug)
 
-    cv2.destroyAllWindows()
+        cv2.destroyAllWindows()
 
 if __name__ == "__main__":
     buffer = np.zeros((32, 32, 3), dtype=np.uint8)
     keys = ['up','left','down','right']
 
-    cv2.namedWindow(
-        'screen',
-        cv2.WINDOW_NORMAL    |
-        cv2.WINDOW_GUI_NORMAL
-    )
-    cv2.setWindowProperty(
-        'screen',
-        cv2.WND_PROP_ASPECT_RATIO,
-        cv2.WINDOW_KEEPRATIO
-    )
+    debug = True
 
-    cv2.resizeWindow('screen', 320, 320)
+    if not debug:
+        cv2.namedWindow(
+            'screen',
+            cv2.WINDOW_NORMAL    |
+            cv2.WINDOW_GUI_NORMAL
+        )
+        cv2.setWindowProperty(
+            'screen',
+            cv2.WND_PROP_ASPECT_RATIO,
+            cv2.WINDOW_KEEPRATIO
+        )
 
-    main(debug=False)
+        cv2.resizeWindow('screen', 320, 320)
+
+    main(debug=debug)

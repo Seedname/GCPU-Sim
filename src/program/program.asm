@@ -49,9 +49,14 @@ address:    dc.b    $00,$10
 @    if the snake's next position is white, the snake dies. reset the screen (make each pixel white then black??). then reset the snake
 @    if the snake's next position is black, use the mask to make the tail pixel black, and the new head pixel white
 
+
+@ NEVERMIND:
+@   use a LFSR to get a random apple position instead
+@   then also add the snake tail or something to make it less deterministic
+
+
 @ NOTE: Try using branching instead of repeated addition / repeated subtraction to make clocks consistent. it would be weird if some regions moved faster than others
 
-@ MAYBE: Double the number of bytes allocated for the screen? This way I can have 4 colors, black, green, red, white
 main:
     org 0
     ldx address
@@ -60,9 +65,15 @@ main:
     staa address
 
 fillScreen:
+    ldaa address
+    ldab #$03 ; get last two bits to do address mod 8
+    and_ab
+
+    @ get the pixel at the address
     ldx address
-    ldab #$FF
-    stab 0,x
+    ldaa 0,x
+
+    
 
     ldaa address
     ldab #1

@@ -268,7 +268,7 @@ BEGIN
 
 def main() -> None:
     path = pathlib.Path(__file__).parent
-    filename = path.joinpath("program", "etch-a-sketch.asm")
+    filename = path.joinpath("program", "lab7.asm")
     lines = read_asm(filename)
     process_asm(lines)
 
