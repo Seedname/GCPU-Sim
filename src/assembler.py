@@ -9,26 +9,26 @@ asm_map = {
     # Data Movement Instructions
     r"^tab$": [0x00],
     r"^tba$": [0x01],
-    r"^ldaa\s+#(\$?[a-z0-9_]+)$": [0x02, "mm"],
-    r"^ldab\s+#(\$?[a-z0-9_]+)$": [0x03, "mm"],
-    r"^ldaa\s+(\$?[a-z0-9_]+)$": [0x04, "ll", "hh"],
-    r"^ldab\s+(\$?[a-z0-9_]+)$": [0x05, "ll", "hh"],
-    r"^staa\s+(\$?[a-z0-9_]+)$": [0x06, "ll", "hh"],
-    r"^stab\s+(\$?[a-z0-9_]+)$": [0x07, "ll", "hh"],
-    r"^ldx\s+#(\$?[a-z0-9_]+)$": [0x08, "ii", "jj"],
-    r"^ldy\s+#(\$?[a-z0-9_]+)$": [0x09, "ii", "jj"],
-    r"^ldx\s+(\$?[a-z0-9_]+)$": [0x0A, "ll", "hh"],
-    r"^ldy\s+(\$?[a-z0-9_]+)$": [0x0B, "ll", "hh"],
+    r"^ldaa\s+#((?:\$|%)?[a-z0-9_]+)$": [0x02, "mm"],
+    r"^ldab\s+#((?:\$|%)?[a-z0-9_]+)$": [0x03, "mm"],
+    r"^ldaa\s+((?:\$|%)?[a-z0-9_]+)$": [0x04, "ll", "hh"],
+    r"^ldab\s+((?:\$|%)?[a-z0-9_]+)$": [0x05, "ll", "hh"],
+    r"^staa\s+((?:\$|%)?[a-z0-9_]+)$": [0x06, "ll", "hh"],
+    r"^stab\s+((?:\$|%)?[a-z0-9_]+)$": [0x07, "ll", "hh"],
+    r"^ldx\s+#((?:\$|%)?[a-z0-9_]+)$": [0x08, "ii", "jj"],
+    r"^ldy\s+#((?:\$|%)?[a-z0-9_]+)$": [0x09, "ii", "jj"],
+    r"^ldx\s+((?:\$|%)?[a-z0-9_]+)$": [0x0A, "ll", "hh"],
+    r"^ldy\s+((?:\$|%)?[a-z0-9_]+)$": [0x0B, "ll", "hh"],
 
     # regular data movement instructions
-    r"^ldaa\s+(\$?[a-z0-9_]+),x$": [0x0C, "dd"],
-    r"^ldaa\s+(\$?[a-z0-9_]+),y$": [0x0D, "dd"],
-    r"^ldab\s+(\$?[a-z0-9_]+),x$": [0x0E, "dd"],
-    r"^ldab\s+(\$?[a-z0-9_]+),y$": [0x0F, "dd"],
-    r"^staa\s+(\$?[a-z0-9_]+),x$": [0x10, "dd"],
-    r"^staa\s+(\$?[a-z0-9_]+),y$": [0x11, "dd"],
-    r"^stab\s+(\$?[a-z0-9_]+),x$": [0x12, "dd"],
-    r"^stab\s+(\$?[a-z0-9_]+),y$": [0x13, "dd"],
+    r"^ldaa\s+((?:\$|%)?[a-z0-9_]+),x$": [0x0C, "dd"],
+    r"^ldaa\s+((?:\$|%)?[a-z0-9_]+),y$": [0x0D, "dd"],
+    r"^ldab\s+((?:\$|%)?[a-z0-9_]+),x$": [0x0E, "dd"],
+    r"^ldab\s+((?:\$|%)?[a-z0-9_]+),y$": [0x0F, "dd"],
+    r"^staa\s+((?:\$|%)?[a-z0-9_]+),x$": [0x10, "dd"],
+    r"^staa\s+((?:\$|%)?[a-z0-9_]+),y$": [0x11, "dd"],
+    r"^stab\s+((?:\$|%)?[a-z0-9_]+),x$": [0x12, "dd"],
+    r"^stab\s+((?:\$|%)?[a-z0-9_]+),y$": [0x13, "dd"],
 
     # ALU Related Instructions
     r"^sum_ba$": [0x14],
@@ -46,10 +46,10 @@ asm_map = {
     r"^inx$": [0x30],
     r"^iny$": [0x31],
     # Branch Instructions
-    r"^beq\s+(\$?[a-zA-Z0-9_]+)$": [0x20, "bb"],
-    r"^bne\s+(\$?[a-zA-Z0-9_]+)$": [0x21, "bb"],
-    r"^bn\s+(\$?[a-zA-Z0-9_]+)$": [0x22, "bb"],
-    r"^bp\s+(\$?[a-zA-Z0-9_]+)$": [0x23, "bb"],
+    r"^beq\s+((?:\$|%)?[a-zA-Z0-9_]+)$": [0x20, "bb"],
+    r"^bne\s+((?:\$|%)?[a-zA-Z0-9_]+)$": [0x21, "bb"],
+    r"^bn\s+((?:\$|%)?[a-zA-Z0-9_]+)$": [0x22, "bb"],
+    r"^bp\s+((?:\$|%)?[a-zA-Z0-9_]+)$": [0x23, "bb"],
 }
 
 # Assembler directives:
@@ -58,11 +58,11 @@ asm_map = {
 # dc.b <value> - Define a constant byte
 # ds.b <size> - Define a block of memory
 asm_directives = [
-    r"^(org)\s+(\$?[a-f0-9]+)$",
-    r"^(equ)\s+(\$?[a-f0-9]+)$",
-    r"^(db)\s+(\$?[a-f0-9]+)$",
-    r"^(dc.b)\s+([\$?a-f0-9,]+)$",
-    r"^(ds.b)\s+(\$?[a-f0-9]+)$",
+    r"^(org)\s+((?:\$|%)?[a-f0-9]+)$",
+    r"^(equ)\s+((?:\$|%)?[a-f0-9]+)$",
+    r"^(db)\s+((?:\$|%)?[a-f0-9]+)$",
+    r"^(dc.b)\s+([\$%a-f0-9,]+)$",
+    r"^(ds.b)\s+((?:\$|%)?[a-f0-9]+)$",
 ]
 
 def read_asm(filename: str) -> list[str]:
@@ -91,6 +91,17 @@ def read_asm(filename: str) -> list[str]:
 
     return lines
 
+def parse_number(num: str) -> int:
+    if num.startswith("$"):
+        return int(num[1:], 16)
+    elif num.startswith("%"):
+        return int(num[1:], 2)
+    
+    return int(num)
+
+def hexify(value: int, digits: int = 4) -> str:
+    return hex(value)[2:].zfill(digits).upper()[-digits:]
+    
 def process_asm(lines: list[str]) -> None:
     memory = {}
 
@@ -114,7 +125,7 @@ def process_asm(lines: list[str]) -> None:
                 
                 match pnemonic:
                     case "org":
-                        running_address = int(argument[1:], 16) if argument.startswith("$") else int(argument)
+                        running_address = parse_number(argument)
                         break
                     case "equ":
                         macros[label] = argument
@@ -128,13 +139,13 @@ def process_asm(lines: list[str]) -> None:
                             if (running_address + i) in memory:
                                 raise ValueError(f"Address ${running_address + i:04X} already defined in memory")
                             
-                            memory[running_address + i] = int(num[1:], 16) if num.startswith("$") else int(num)
+                            memory[running_address + i] = parse_number(num)
 
                         running_address += len(arguments)
                         break
                     case "ds.b":
                         macros[label] = str(running_address)
-                        size = int(argument[1:], 16) if argument.startswith("$") else int(argument)
+                        size = parse_number(argument)
 
                         for i in range(size):
                             if (running_address + i) in memory:
@@ -148,7 +159,7 @@ def process_asm(lines: list[str]) -> None:
 
                 break
     
-
+    
     prev_running_address = running_address
 
     # second pass: labels to addresses
@@ -182,18 +193,16 @@ def process_asm(lines: list[str]) -> None:
                     if operand in macros:
                         operands[i] = macros[operand]
 
-                    operands[i] = int(operands[i][1:], 16) if operands[i].startswith("$") else int(operands[i])
+                    operands[i] = parse_number(operands[i])
 
                 memory[running_address] = opcode[0]
 
                 if len(opcode) == 2:
                     memory[running_address + 1] = operands[0]
                 if len(opcode) == 3:
-                    hex_value = hex(operands[0])[2:]
-                    low_byte = int(hex_value[-2:], 16)
-                    high_byte = int(hex_value[:-2], 16)
-                    memory[running_address + 1] = low_byte
-                    memory[running_address + 2] = high_byte
+                    operand_bytes = int.to_bytes(operands[0], byteorder='little', length=2)
+                    memory[running_address + 1] = operand_bytes[0]
+                    memory[running_address + 2] = operand_bytes[1]
 
                 running_address += len(opcode)
                 break
@@ -215,9 +224,6 @@ BEGIN
     ram = ""
 
     last_location = 0
-
-    def hexify(value: int, digits: int = 4) -> str:
-        return hex(value)[2:].zfill(digits).upper()[-digits:]
     
     for location in sorted(memory.keys()):
         if location <= 0x0FFF:
@@ -268,7 +274,7 @@ BEGIN
 
 def main() -> None:
     path = pathlib.Path(__file__).parent
-    filename = path.joinpath("program", "lab7.asm")
+    filename = path.joinpath("program", "etch-a-sketch.asm")
     lines = read_asm(filename)
     process_asm(lines)
 

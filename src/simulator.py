@@ -6,6 +6,8 @@ import pathlib
 import threading
 import time
 
+# TODO: add comments & docstrings, make into CLI tool or library?
+
 class CPU:
     def __init__(self, rom: str = "rom.mif", ram: str = "ram.mif"):
         self.a = 0
@@ -117,6 +119,7 @@ class CPU:
         else:
             print(f"Unknown instruction: {instruction}")
             exit(1)
+
 
 class Instruction:
     def tab(cpu: CPU):
@@ -321,11 +324,11 @@ class Instruction:
         cpu.inc_pc()
 
     def coma(cpu: CPU):
-        cpu.a = ~cpu.a
+        cpu.a = ~cpu.a & 0xFF
         cpu.inc_pc()
     
     def comb(cpu: CPU):
-        cpu.b = ~cpu.b
+        cpu.b = ~cpu.b & 0xFF
         cpu.inc_pc()
 
     def shfa_l(cpu: CPU):
@@ -391,19 +394,6 @@ class Instruction:
             cpu.inc_pc()
 
 
-class Timer:
-    def __init__(self):
-        self.start_time = time.perf_counter()
-        self.elapsed_time = 0
-    
-    def __call__(self):
-        self.elapsed_time = time.perf_counter() - self.start_time
-        return self.elapsed_time
-
-    def reset(self):
-        self.start_time = time.perf_counter()
-        self.elapsed_time = 0
-    
 def display_info(cpu: CPU, memory_locations: dict[str, int] = None) -> None:
     print("Expr\tValue\tMemory")
 
@@ -418,6 +408,7 @@ def display_info(cpu: CPU, memory_locations: dict[str, int] = None) -> None:
           f"Y:\t${cpu.y:04X}\t${cpu.memory[cpu.y]:02X}",
           f"{'\n'.join(locations)}\n",
           sep="\n")
+
 
 def display_screen(cpu: CPU, start: int = 0x1000, debug: bool = False) -> bool:
     while True:
@@ -477,6 +468,7 @@ def display_screen_2bit(cpu: CPU, start: int = 0x1000) -> bool:
         if key == 'q':
             return True
 
+
 def register_keys(cpu: CPU, start: int = 0x1400, sticky: bool = False) -> None:
     if not sticky:
         while True:
@@ -501,7 +493,7 @@ def register_keys(cpu: CPU, start: int = 0x1400, sticky: bool = False) -> None:
                     else:
                         cpu.memory[start + i] = 0
 
-            
+
 def clock_cpu(cpu: CPU, debug: bool = False, step: bool = False) -> None:
     target = time.perf_counter_ns()
 
@@ -546,11 +538,12 @@ def main(debug: bool = False, two_bit_screen: bool = False) -> None:
 
         cv2.destroyAllWindows()
 
+
 if __name__ == "__main__":
     buffer = np.zeros((32, 32, 3), dtype=np.uint8)
     keys = ['up','left','down','right']
 
-    debug = True
+    debug = False
 
     if not debug:
         cv2.namedWindow(
