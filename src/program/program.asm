@@ -41,7 +41,8 @@ address:    dc.b    $00,$10
 @    add the col to the seed
 @    then do the inverse for the col
 
-@ 3. move the snake
+@ 3. move the snake 
+@    note: store a buffer of the keys so that the snake cant move in the opposite direction 
 @    check if head is on the apple
 @    if so, spawn a new apple
 @    if not, calculate the snakes next position

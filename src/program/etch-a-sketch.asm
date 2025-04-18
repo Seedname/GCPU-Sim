@@ -16,6 +16,14 @@ mask:   dc.b    $80
 neg1:   equ     $FF
 neg8:   equ     $F8
 
+address:    dc.b    $00,$10
+
+org $1500
+maskTable:  dc.b    $80,$40,$20,$10,$08,$04,$02,$01
+
+maskAdr:    dc.b    $00,$15
+
+
 main: 
     org 0
 
@@ -39,70 +47,60 @@ readKeys:
 continue:
     @ load a with the row
     ldaa row
-    ldx #screen
-    beq afterGetRow
-    ldab #neg1
-
-getRow:
-    @ increment x pointer row * 4 times
-    inx
-    inx
-    inx
-    inx
-  
-    sum_ba ; decrement a
-
-    bne getRow ; if not zero, keep going
-
-afterGetRow:
-    @ load a with the col
-    ldaa col
     
-    @ get box by dividing by 8
-    shfa_r
-    shfa_r
-    shfa_r
+    @ multiply the row by 4
+    shfa_l
+    shfa_l
 
-    @ move x pointer to the box
-    beq afterGetCol
-    ldab #neg1
-
-getCol:
-    inx
-    sum_ba
-    bne getCol
-
-afterGetCol:
-    @ find the col % 8
-    ldaa col
-    ldab #neg8
-
-getMod:
-    sum_ba
-    @ if still positive, keep subtracting
-    bp getMod
-
-    @ if negative, add an 8 to get the mod
-    ldab #8
-    sum_ba
-
-    ldab #$80 ; 1000 0000 bitmask
-    stab mask
+    @ load b with the col
+    ldab col
     
-    beq writeScreen ; dont modify the bitmask if the modulus is 0
-
-    @ shift right to get the bitmask
-getMask:
-    ldab mask
+    @ get byte by dividing by 8
     shfb_r
-    stab mask
-    ldab #neg1
-    sum_ba
-    bne getMask ; if modulus zero, keep going
+    shfb_r
+    shfb_r
+
+    sum_ba ; add a and b to get the byte
+
+    staa address ; store the address of the byte
+
+
+    @ find the col % 8
+    @ find this by doing col & $07. this will get the last 3 bits, or the octal word that comes out
+    ldaa col
+    ldab #07
+    and_ba ; this will get the last 3 bits of the col
+
+@     ldab #$80 ; load the mask
+@     stab mask
+@     beq writeScreen ; dont do anything if col % 8 is 0
+
+@ getMask:
+@     ldab mask
+@     shfb_r ; shift right 1 bit
+@     stab mask ; store the new mask
+@     ldab #neg1
+@     sum_ba
+@     bne getMask
+
+    @ find the bitmask with the lookup table
+    ldab maskAdr ; load b with lower byte of the mask table address
+    sum_ab ; add col % 8 to the lower byte of the mask table address
+    stab maskAdr ; store the lower byte of the mask table address
+
+    ldx maskAdr
+
+    @ restore the lower byte
+    ldaa #0
+    staa maskAdr
+
+    @ load bitmask into a, and the screen into b
+    ldaa 0,x ; get the bitmask from the table
 
 writeScreen:
-    @ load bitmask into a, and the screen into b
-    ldaa mask
+    ldx address ; load the address into x
+
+    @ ldaa mask ; load the mask into b
     ldab 0,x
 
     or_ba ; add the bitmask to the screen

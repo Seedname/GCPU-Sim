@@ -6,7 +6,6 @@ import pathlib
 import threading
 import time
 
-
 class CPU:
     def __init__(self, rom: str = "rom.mif", ram: str = "ram.mif"):
         self.a = 0
@@ -238,6 +237,7 @@ class Instruction:
         upper = cpu.get_memory()
 
         address = (upper << 8) | lower
+
         lower = cpu.memory[address]
         upper = (cpu.memory[address + 1] << 8)
         cpu.y = lower | upper
@@ -387,9 +387,33 @@ class Instruction:
             cpu.pc += 1
 
 
-def display_info(cpu: CPU) -> None:
+class Timer:
+    def __init__(self):
+        self.start_time = time.monotonic()
+        self.elapsed_time = 0
+    
+    def __call__(self):
+        self.elapsed_time = time.monotonic() - self.start_time
+        return self.elapsed_time
+
+    def reset(self):
+        self.start_time = time.monotonic()
+        self.elapsed_time = 0
+    
+def display_info(cpu: CPU, memory_locations: dict[str, int] = None) -> None:
     print("Expr\tValue\tMemory")
-    print(f"PC:\t${cpu.pc:04X}\t${cpu.memory[cpu.pc]:02X}\nA:\t${cpu.a:02X}\nB:\t${cpu.b:02X}\nX:\t${cpu.x:04X}\t${cpu.memory[cpu.x]:02X}\nY:\t${cpu.y:04X}\t${cpu.memory[cpu.y]:02X}")
+
+    if memory_locations is None:
+        locations = []
+    else:
+        locations = [f"{location}:\t\t${cpu.memory[memory_locations[location]]:02X}" for location in memory_locations]
+    
+    print(f"PC:\t${cpu.pc:04X}\t${cpu.memory[cpu.pc]:02X}",
+          f"A:\t${cpu.a:02X}\nB:\t${cpu.b:02X}",
+          f"X:\t${cpu.x:04X}\t${cpu.memory[cpu.x]:02X}",
+          f"Y:\t${cpu.y:04X}\t${cpu.memory[cpu.y]:02X}",
+          f"{'\n'.join(locations)}\n",
+          sep="\n")
 
 def display_screen(cpu: CPU, start: int = 0x1000, debug: bool = False) -> bool:
     while True:
@@ -416,13 +440,15 @@ def display_screen(cpu: CPU, start: int = 0x1000, debug: bool = False) -> bool:
         if debug:
             print(f"row:\t{cpu.memory[0x1409]}", 
                 f"col:\t{cpu.memory[0x140A] // 8}",
-                f"x:\t{cpu.x}", 
-                f"a:\t{cpu.a}", 
-                f"b:\t{cpu.b}", 
+                f"x:\t{cpu.x:04X}", 
+                f"y:\t{cpu.y:04X}", 
+                f"a:\t{cpu.a:02X}", 
+                f"b:\t{cpu.b:02X}", 
+                f"adr:\t{cpu.memory[0x140C]:04X}",
                 sep="\n", end="\n\n")
 
 
-def display_screen_2bit(cpu: CPU, start: int = 0x1000, debug: bool = False) -> bool:
+def display_screen_2bit(cpu: CPU, start: int = 0x1000) -> bool:
     display_map = [(0, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 255)]
     while True:
         for i in range(256):
@@ -446,43 +472,73 @@ def display_screen_2bit(cpu: CPU, start: int = 0x1000, debug: bool = False) -> b
 
         if key == 'q':
             return True
-        
-        if debug:
-            print(f"row:\t{cpu.memory[0x1409]}", 
-                f"col:\t{cpu.memory[0x140A] // 8}",
-                f"x:\t{cpu.x}", 
-                f"a:\t{cpu.a}", 
-                f"b:\t{cpu.b}", 
-                sep="\n", end="\n\n")
-    
-def register_keys(cpu: CPU, start: int = 0x1400) -> None:
-    while True:
-        for i, key in enumerate(keys):
-            if keyboard.is_pressed(key):
-                cpu.memory[start + i] = 1
-            else:
-                cpu.memory[start + i] = 0
 
-def clock_cpu(cpu: CPU) -> None:
-    next_clock = time.monotonic_ns()
+def register_keys(cpu: CPU, start: int = 0x1400, sticky: bool = False) -> None:
+    if not sticky:
+        while True:
+            for i, key in enumerate(keys):
+                if keyboard.is_pressed(key):
+                    cpu.memory[start + i] = 1
+                else:
+                    cpu.memory[start + i] = 0
+    else:
+        last_key_pressed = -1
+        while True:
+            keys_pressed = [keyboard.is_pressed(key) for key in keys]
+
+            if all(not pressed for pressed in keys_pressed):
+                if last_key_pressed != -1:
+                    cpu.memory[start + last_key_pressed] = 1
+            else:
+                for i, key in enumerate(keys):
+                    if keys_pressed[i]:
+                        cpu.memory[start + i] = 1
+                        last_key_pressed = i
+                    else:
+                        cpu.memory[start + i] = 0
+
+            
+def clock_cpu(cpu: CPU, debug: bool = False) -> None:
+    # timer = Timer()
+    
+    # while True:
+
+    #     if debug:
+    #         display_info(cpu, memory_locations={
+    #             'addr': 0x1413
+    #         })
+
+    #     cpu.clock()
+
+    #     while timer() <= 0.0005:
+    #         pass
+
+    #     timer.reset()
+
+    n2 = time.time()
+    target_delay = 0.001
     while True:
-        next_clock += 500_000
+        n1 = time.time()
         cpu.clock()
 
-        while time.monotonic_ns() < next_clock:
-            pass
+        while True:
+            t = n2 - n1
+            n2 = time.time()
+            if t >= target_delay:
+                break
 
-def main() -> None:
+
+def main(debug: bool = False) -> None:
     path = pathlib.Path(__file__).parent.joinpath('output')
     cpu = CPU(rom=path.joinpath('rom.mif'), ram=path.joinpath('ram.mif'))
 
-    clock_cpu_threaded = threading.Thread(target=clock_cpu, args=(cpu,), daemon=True)
+    clock_cpu_threaded = threading.Thread(target=clock_cpu, args=(cpu,debug,), daemon=True)
     register_keys_threaded = threading.Thread(target=register_keys, args=(cpu,), daemon=True)
     
     clock_cpu_threaded.start()
     register_keys_threaded.start()
     
-    display_screen_2bit(cpu)
+    display_screen(cpu, debug=debug)
 
     cv2.destroyAllWindows()
 
@@ -503,4 +559,4 @@ if __name__ == "__main__":
 
     cv2.resizeWindow('screen', 320, 320)
 
-    main()
+    main(debug=False)

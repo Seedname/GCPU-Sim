@@ -148,6 +148,7 @@ def process_asm(lines: list[str]) -> None:
 
                 break
     
+
     prev_running_address = running_address
 
     # second pass: labels to addresses
@@ -267,7 +268,7 @@ BEGIN
 
 def main() -> None:
     path = pathlib.Path(__file__).parent
-    filename = path.joinpath("program", "program.asm")
+    filename = path.joinpath("program", "etch-a-sketch.asm")
     lines = read_asm(filename)
     process_asm(lines)
 
