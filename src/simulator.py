@@ -1,7 +1,7 @@
 import re
 import cv2
 import numpy as np
-import keyboard
+from pynput import keyboard
 import pathlib
 import threading
 import time
@@ -61,6 +61,11 @@ class CPU:
             0x21: Instruction.bne,
             0x22: Instruction.bn,
             0x23: Instruction.bp,
+            # extra instruction I added (not part of G-CPU)
+            0x24: Instruction.beq16,
+            0x25: Instruction.bne16,
+            0x26: Instruction.bn16,
+            0x27: Instruction.bp16,
         }
 
     def load_memory_file(self, filename: str, offset: int):
@@ -117,7 +122,7 @@ class CPU:
         if instruction in self.instructions:
             self.instructions[instruction](self)
         else:
-            print(f"Unknown instruction: {instruction}")
+            print(f"Unknown instruction: ${instruction:02X}")
             exit(1)
 
 
@@ -272,7 +277,7 @@ class Instruction:
     def ldaby(cpu: CPU):
         cpu.inc_pc()
         displacement = cpu.get_memory()
-        cpu.y = cpu.memory[cpu.y + displacement]
+        cpu.b = cpu.memory[cpu.y + displacement]
         cpu.inc_pc()
 
     def staax(cpu: CPU):
@@ -360,7 +365,11 @@ class Instruction:
         address = cpu.get_memory()
 
         if cpu.a == 0:
-            cpu.pc = address
+            # chop off the last byte of the program counter
+            cpu.pc >>= 8
+            cpu.pc <<= 8
+            # replace it with the address
+            cpu.pc |= address
         else:
             cpu.inc_pc()
 
@@ -369,7 +378,11 @@ class Instruction:
         address = cpu.get_memory()
 
         if cpu.a != 0:
-            cpu.pc = address
+            # chop off the last byte of the program counter
+            cpu.pc >>= 8
+            cpu.pc <<= 8
+            # replace it with the address
+            cpu.pc |= address
         else:
             cpu.inc_pc()
 
@@ -379,7 +392,11 @@ class Instruction:
 
         # check if MSB of A is 1
         if cpu.a & 0x80:
-            cpu.pc = address
+            # chop off the last byte of the program counter
+            cpu.pc >>= 8
+            cpu.pc <<= 8
+            # replace it with the address
+            cpu.pc |= address
         else:
             cpu.inc_pc()
         
@@ -389,9 +406,64 @@ class Instruction:
 
         # check if MSB of A is 0
         if cpu.a & 0x80 == 0:
+            # chop off the last byte of the program counter
+            cpu.pc >>= 8
+            cpu.pc <<= 8
+            # replace it with the address
+            cpu.pc |= address
+        else:
+            cpu.inc_pc()
+
+    def beq16(cpu: CPU):
+        cpu.inc_pc()
+        low_byte = cpu.get_memory()
+        cpu.inc_pc()
+        high_byte = cpu.get_memory()
+        
+        if cpu.a == 0:
+            address = (high_byte << 8) | low_byte
             cpu.pc = address
         else:
             cpu.inc_pc()
+
+    def bne16(cpu: CPU):
+        cpu.inc_pc()
+        low_byte = cpu.get_memory()
+        cpu.inc_pc()
+        high_byte = cpu.get_memory()
+
+        if cpu.a != 0:
+            address = (high_byte << 8) | low_byte
+            cpu.pc = address
+        else:
+            cpu.inc_pc()
+
+    def bn16(cpu: CPU):
+        cpu.inc_pc()
+        low_byte = cpu.get_memory()
+        cpu.inc_pc()
+        high_byte = cpu.get_memory()
+
+        # check if MSB of A is 1
+        if cpu.a & 0x80:
+            address = (high_byte << 8) | low_byte
+            cpu.pc = address
+        else:
+            cpu.inc_pc()
+        
+    def bp16(cpu: CPU):
+        cpu.inc_pc()
+        low_byte = cpu.get_memory()
+        cpu.inc_pc()
+        high_byte = cpu.get_memory()
+
+        # check if MSB of A is 0
+        if cpu.a & 0x80 == 0:
+            address = (high_byte << 8) | low_byte
+            cpu.pc = address
+        else:
+            cpu.inc_pc()
+
 
 
 def display_info(cpu: CPU, memory_locations: dict[str, int] = None) -> None:
@@ -410,7 +482,7 @@ def display_info(cpu: CPU, memory_locations: dict[str, int] = None) -> None:
           sep="\n")
 
 
-def display_screen(cpu: CPU, start: int = 0x1000, debug: bool = False) -> bool:
+def display_screen(cpu: CPU, start: int = 0x1000, screen_scale: int = 1) -> bool:
     while True:
         for i in range(128):
             byte = cpu.memory[start + i]
@@ -421,7 +493,7 @@ def display_screen(cpu: CPU, start: int = 0x1000, debug: bool = False) -> bool:
         
         big = cv2.resize(
             buffer,
-            (buffer.shape[1] * 10, buffer.shape[0] * 10),
+            (buffer.shape[1] * screen_scale, buffer.shape[0] * screen_scale),
             interpolation=cv2.INTER_NEAREST
         )
 
@@ -431,19 +503,10 @@ def display_screen(cpu: CPU, start: int = 0x1000, debug: bool = False) -> bool:
 
         if key == 'q':
             return True
-        
-        if debug:
-            print(f"row:\t{cpu.memory[0x1409]}", 
-                f"col:\t{cpu.memory[0x140A] // 8}",
-                f"x:\t{cpu.x:04X}", 
-                f"y:\t{cpu.y:04X}", 
-                f"a:\t{cpu.a:02X}", 
-                f"b:\t{cpu.b:02X}", 
-                f"adr:\t{cpu.memory[0x140C]:04X}",
-                sep="\n", end="\n\n")
 
 
-def display_screen_2bit(cpu: CPU, start: int = 0x1000) -> bool:
+
+def display_screen_2bit(cpu: CPU, start: int = 0x1000, screen_scale: int = 1) -> bool:
     display_map = [(0, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 255)]
     while True:
         for i in range(256):
@@ -457,7 +520,7 @@ def display_screen_2bit(cpu: CPU, start: int = 0x1000) -> bool:
         
         big = cv2.resize(
             buffer,
-            (buffer.shape[1] * 10, buffer.shape[0] * 10),
+            (buffer.shape[1] * screen_scale, buffer.shape[0] * screen_scale),
             interpolation=cv2.INTER_NEAREST
         )
 
@@ -469,29 +532,79 @@ def display_screen_2bit(cpu: CPU, start: int = 0x1000) -> bool:
             return True
 
 
-def register_keys(cpu: CPU, start: int = 0x1400, sticky: bool = False) -> None:
-    if not sticky:
-        while True:
-            for i, key in enumerate(keys):
-                if keyboard.is_pressed(key):
-                    cpu.memory[start + i] = 1
-                else:
-                    cpu.memory[start + i] = 0
-    else:
-        last_key_pressed = -1
-        while True:
-            keys_pressed = [keyboard.is_pressed(key) for key in keys]
+KEY_MAP = {
+    'up':    keyboard.Key.up,
+    'left':  keyboard.Key.left,
+    'down':  keyboard.Key.down,
+    'right': keyboard.Key.right,
+}
 
-            if all(not pressed for pressed in keys_pressed):
-                if last_key_pressed != -1:
-                    cpu.memory[start + last_key_pressed] = 1
-            else:
-                for i, key in enumerate(keys):
-                    if keys_pressed[i]:
-                        cpu.memory[start + i] = 1
-                        last_key_pressed = i
-                    else:
-                        cpu.memory[start + i] = 0
+def register_keys(cpu: CPU, start: int = 0x1400, sticky: bool = True) -> threading.Thread:
+    # TODO: refactor this whole function
+    # TODO: fix memory leak with threads
+
+    pressed = set()
+    last_key: int = -1
+    keys = list(KEY_MAP.keys())
+
+    def clear_all():
+        for idx in range(len(keys)):
+            cpu.memory[start + idx] = 0
+
+    def on_press(key):
+        nonlocal last_key
+        for idx, name in enumerate(keys):
+            if key == KEY_MAP[name]:
+                if not sticky:
+                    cpu.memory[start + idx] = 1
+                else:
+                    pressed.add(idx)
+                    last_key = idx
+                break
+
+    def on_release(key):
+        nonlocal last_key
+        for idx, name in enumerate(keys):
+            if key == KEY_MAP[name]:
+                if not sticky:
+                    cpu.memory[start + idx] = 0
+                else:
+                    pressed.discard(idx)
+                    if not pressed and last_key != -1:
+                        clear_all()
+                        cpu.memory[start + last_key] = 1
+                break
+
+    listener = keyboard.Listener(on_press=on_press,
+                                 on_release=on_release)
+    listener.daemon = True
+    listener.start()
+
+    return listener
+
+# def register_keys(cpu: CPU, start: int = 0x1400, sticky: bool = False) -> None:
+#     if not sticky:
+#         while True:
+#             for i, key in enumerate(keys):
+#                 if keyboard.is_pressed(key):
+#                     cpu.memory[start + i] = 1
+#                 else:
+#                     cpu.memory[start + i] = 0
+#     else:
+#         last_key_pressed = -1
+#         while True:
+#             keys_pressed = [keyboard.is_pressed(key) for key in keys]
+
+#             if all(not pressed for pressed in keys_pressed):
+#                 if last_key_pressed != -1:
+#                     cpu.memory[start + last_key_pressed] = 1
+#             else:
+#                 for i, key in enumerate(keys):
+#                     if keys_pressed[i]:
+#                         cpu.memory[start + i] = 1
+#                         last_key_pressed = i
+#                     else:
+#                         cpu.memory[start + i] = 0
 
 
 def clock_cpu(cpu: CPU, debug: bool = False, step: bool = False) -> None:
@@ -501,51 +614,69 @@ def clock_cpu(cpu: CPU, debug: bool = False, step: bool = False) -> None:
 
         if debug:
             display_info(cpu, memory_locations={
-                'count': 0x1000,
-                'out1':  0x1a37,
-                'out2':  0x1a38,
-                'out3':  0x1a39
+                'addr': 0x130C,
+                'head': 0x1300,
+                'tail': 0x1301,
+
+                'xAddr':  0x1302,
+                'yAddr':  0x1304,
+
+                'tempX':  0x1305,
+                'tempY':  0x1306,
+                
+                'dir': 0x1307,
+
+                'sMask': 0x1504,
+                'aMask': 0x1506,
+                'eMask': 0x1508
             })
         
         cpu.clock()
 
-        if step:
-            input()
+        if not step:
+            time.sleep(0.001)
         else:
-            while time.perf_counter_ns() <= target:
-                pass
+            input()
+        
+            # while time.perf_counter_ns() <= target:
+            #     pass
 
-            target = time.perf_counter_ns() + 1_000_000
+            # target = time.perf_counter_ns() + 1_000_000
 
 
-def main(debug: bool = False, two_bit_screen: bool = False) -> None:
+def main(debug: bool = False, screen: int = 0, screen_scale = 1) -> None:
     path = pathlib.Path(__file__).parent.joinpath('output')
     cpu = CPU(rom=path.joinpath('rom.mif'), ram=path.joinpath('ram.mif'))
     
-    if debug:
-        clock_cpu(cpu, True, True)
+    if screen == 0:
+        clock_cpu(cpu, debug, debug)
     else:
-        clock_cpu_threaded = threading.Thread(target=clock_cpu, args=(cpu,False,False), daemon=True)
-        register_keys_threaded = threading.Thread(target=register_keys, args=(cpu,), daemon=True)
+        clock_cpu_threaded = threading.Thread(target=clock_cpu, args=(cpu,debug,debug), daemon=True)
+        # register_keys_threaded = threading.Thread(target=register_keys, args=(cpu,), daemon=True)
+        register_keys(cpu, start=0x1400, sticky=False)
         
         clock_cpu_threaded.start()
-        register_keys_threaded.start()
+        # register_keys_threaded.start()
         
-        if two_bit_screen:
-            display_screen_2bit(cpu)
-        else:
-            display_screen(cpu, debug=debug)
-
+        if screen == 1:
+            display_screen(cpu,screen_scale=screen_scale)
+        elif screen == 2:
+            display_screen_2bit(cpu, screen_scale=screen_scale)
+    
         cv2.destroyAllWindows()
 
 
 if __name__ == "__main__":
     buffer = np.zeros((32, 32, 3), dtype=np.uint8)
-    keys = ['up','left','down','right']
+    # keys = ['up','left','down','right']
+
+    screen_scale = 15
+
 
     debug = False
+    screen = 2
 
-    if not debug:
+    if screen != 0:
         cv2.namedWindow(
             'screen',
             cv2.WINDOW_NORMAL    |
@@ -557,6 +688,6 @@ if __name__ == "__main__":
             cv2.WINDOW_KEEPRATIO
         )
 
-        cv2.resizeWindow('screen', 320, 320)
+        cv2.resizeWindow('screen', 32 * screen_scale, 32 * screen_scale)
 
-    main(debug=debug)
+    main(debug=debug, screen=screen, screen_scale=screen_scale)

@@ -50,6 +50,11 @@ asm_map = {
     r"^bne\s+((?:\$|%)?[a-zA-Z0-9_]+)$": [0x21, "bb"],
     r"^bn\s+((?:\$|%)?[a-zA-Z0-9_]+)$": [0x22, "bb"],
     r"^bp\s+((?:\$|%)?[a-zA-Z0-9_]+)$": [0x23, "bb"],
+    # 16-bit branch instructions... 8 bits doesnt cut it
+    r"^beq16\s+((?:\$|%)?[a-zA-Z0-9_]+)$": [0x24, "ll", "hh"],
+    r"^bne16\s+((?:\$|%)?[a-zA-Z0-9_]+)$": [0x25, "ll", "hh"],
+    r"^bn16\s+((?:\$|%)?[a-zA-Z0-9_]+)$": [0x26, "ll", "hh"],
+    r"^bp16\s+((?:\$|%)?[a-zA-Z0-9_]+)$": [0x27, "ll", "hh"],
 }
 
 # Assembler directives:
@@ -61,7 +66,7 @@ asm_directives = [
     r"^(org)\s+((?:\$|%)?[a-f0-9]+)$",
     r"^(equ)\s+((?:\$|%)?[a-f0-9]+)$",
     r"^(db)\s+((?:\$|%)?[a-f0-9]+)$",
-    r"^(dc.b)\s+([\$%a-f0-9,]+)$",
+    r"^(dc.b)\s+([\$%a-f0-9,\s]+)$",
     r"^(ds.b)\s+((?:\$|%)?[a-f0-9]+)$",
 ]
 
@@ -116,7 +121,7 @@ def process_asm(lines: list[str]) -> None:
     # first pass: assembler directives
     for line_num, line in enumerate(lines):
         label, instruction = re.match(instruction_format, line).groups()
-
+        
         for format in asm_directives:
             matches = re.match(format, instruction)
             if matches:
@@ -131,8 +136,11 @@ def process_asm(lines: list[str]) -> None:
                         macros[label] = argument
                         break
                     case "dc.b":
-                        macros[label] = str(running_address)
+                        if label is not None:
+                            macros[label] = str(running_address)
+                        
                         arguments = argument.split(",")
+                        arguments = [arg.strip() for arg in arguments]
 
                         for i in range(len(arguments)):
                             num = arguments[i]
@@ -144,7 +152,8 @@ def process_asm(lines: list[str]) -> None:
                         running_address += len(arguments)
                         break
                     case "ds.b":
-                        macros[label] = str(running_address)
+                        if label is not None:
+                            macros[label] = str(running_address)
                         size = parse_number(argument)
 
                         for i in range(size):
@@ -274,7 +283,7 @@ BEGIN
 
 def main() -> None:
     path = pathlib.Path(__file__).parent
-    filename = path.joinpath("program", "etch-a-sketch.asm")
+    filename = path.joinpath("program", "program.asm")
     lines = read_asm(filename)
     process_asm(lines)
 
