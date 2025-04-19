@@ -81,35 +81,6 @@ randomTable:    dc.b    $95,$DB,$EB,$6A,$72,$23,$1F,$BF,$8E,$34,$EC,$54,$62,$74,
 @ pointer to the random table
 seedAddress:    dc.b    $00,$18
 
-@ logic:
-@ 1. Spawn snake in the middle of the screen
-
-@ 2. spawn the apple
-@    only generating numbers between 0 and 31
-@    only need 5/8 bits to be for the random number
-@    add the seed to the current row
-@    and the row by $1F
-@    add the col to the seed
-@    then do the inverse for the col
-
-@ 3. move the snake 
-@    note: store a buffer of the keys so that the snake cant move in the opposite direction 
-@    check if head is on the apple
-@    if so, spawn a new apple
-@    if not, calculate the snakes next position
-@    if the snake's next position is white, the snake dies. reset the screen (make each pixel white then black??). then reset the snake
-@    if the snake's next position is black, use the mask to make the tail pixel black, and the new head pixel white
-
-
-@ NEVERMIND:
-@   use a LFSR to get a random apple position instead
-@   then also add the snake tail or something to make it less deterministic
-
-
-@ NOTE: Try using branching instead of repeated addition / repeated subtraction to make clocks consistent. it would be weird if some regions moved faster than others
-
-
-
 main:
     org 0
 
