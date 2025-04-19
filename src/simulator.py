@@ -531,49 +531,32 @@ def display_screen_2bit(cpu: CPU, start: int = 0x1000, screen_scale: int = 1) ->
         if key == 'q':
             return True
 
-
-KEY_MAP = {
-    'up':    keyboard.Key.up,
-    'left':  keyboard.Key.left,
-    'down':  keyboard.Key.down,
-    'right': keyboard.Key.right,
-}
-
-def register_keys(cpu: CPU, start: int = 0x1400, sticky: bool = True) -> threading.Thread:
-    # TODO: refactor this whole function
+def register_keys(cpu: CPU, start: int = 0x1400, sticky: bool = False) -> threading.Thread:
     # TODO: fix memory leak with threads
 
-    pressed = set()
-    last_key: int = -1
-    keys = list(KEY_MAP.keys())
-
-    def clear_all():
-        for idx in range(len(keys)):
-            cpu.memory[start + idx] = 0
 
     def on_press(key):
-        nonlocal last_key
-        for idx, name in enumerate(keys):
-            if key == KEY_MAP[name]:
-                if not sticky:
-                    cpu.memory[start + idx] = 1
-                else:
-                    pressed.add(idx)
-                    last_key = idx
-                break
+        nonlocal sticky
 
+        if key not in keys: return
+
+        idx = keys[key]
+
+        if not sticky:
+            cpu.memory[start + idx] = 1
+        else:
+            for i in range(len(keys)):
+                cpu.memory[start + i] = 0
+            cpu.memory[start + idx] = 1
+
+        
     def on_release(key):
-        nonlocal last_key
-        for idx, name in enumerate(keys):
-            if key == KEY_MAP[name]:
-                if not sticky:
-                    cpu.memory[start + idx] = 0
-                else:
-                    pressed.discard(idx)
-                    if not pressed and last_key != -1:
-                        clear_all()
-                        cpu.memory[start + last_key] = 1
-                break
+        if key not in keys: return
+
+        idx = keys[key]
+
+        if not sticky:
+            cpu.memory[start + idx] = 0
 
     listener = keyboard.Listener(on_press=on_press,
                                  on_release=on_release)
@@ -581,30 +564,6 @@ def register_keys(cpu: CPU, start: int = 0x1400, sticky: bool = True) -> threadi
     listener.start()
 
     return listener
-
-# def register_keys(cpu: CPU, start: int = 0x1400, sticky: bool = False) -> None:
-#     if not sticky:
-#         while True:
-#             for i, key in enumerate(keys):
-#                 if keyboard.is_pressed(key):
-#                     cpu.memory[start + i] = 1
-#                 else:
-#                     cpu.memory[start + i] = 0
-#     else:
-#         last_key_pressed = -1
-#         while True:
-#             keys_pressed = [keyboard.is_pressed(key) for key in keys]
-
-#             if all(not pressed for pressed in keys_pressed):
-#                 if last_key_pressed != -1:
-#                     cpu.memory[start + last_key_pressed] = 1
-#             else:
-#                 for i, key in enumerate(keys):
-#                     if keys_pressed[i]:
-#                         cpu.memory[start + i] = 1
-#                         last_key_pressed = i
-#                     else:
-#                         cpu.memory[start + i] = 0
 
 
 def clock_cpu(cpu: CPU, debug: bool = False, step: bool = False) -> None:
@@ -638,13 +597,14 @@ def clock_cpu(cpu: CPU, debug: bool = False, step: bool = False) -> None:
         else:
             input()
         
+        # print([cpu.memory[0x1400 + i] for i in range(4)])
             # while time.perf_counter_ns() <= target:
             #     pass
 
             # target = time.perf_counter_ns() + 1_000_000
 
 
-def main(debug: bool = False, screen: int = 0, screen_scale = 1) -> None:
+def main(debug: bool = False, screen: int = 0, screen_scale = 1, sticky: bool = False) -> None:
     path = pathlib.Path(__file__).parent.joinpath('output')
     cpu = CPU(rom=path.joinpath('rom.mif'), ram=path.joinpath('ram.mif'))
     
@@ -653,7 +613,7 @@ def main(debug: bool = False, screen: int = 0, screen_scale = 1) -> None:
     else:
         clock_cpu_threaded = threading.Thread(target=clock_cpu, args=(cpu,debug,debug), daemon=True)
         # register_keys_threaded = threading.Thread(target=register_keys, args=(cpu,), daemon=True)
-        register_keys(cpu, start=0x1400, sticky=False)
+        register_keys(cpu, start=0x1400, sticky=sticky)
         
         clock_cpu_threaded.start()
         # register_keys_threaded.start()
@@ -668,13 +628,17 @@ def main(debug: bool = False, screen: int = 0, screen_scale = 1) -> None:
 
 if __name__ == "__main__":
     buffer = np.zeros((32, 32, 3), dtype=np.uint8)
-    # keys = ['up','left','down','right']
+
+    keys = {keyboard.Key.up: 0, 
+            keyboard.Key.left: 1, 
+            keyboard.Key.down: 2, 
+            keyboard.Key.right: 3}
 
     screen_scale = 15
 
-
     debug = False
     screen = 2
+    sticky = True
 
     if screen != 0:
         cv2.namedWindow(
@@ -690,4 +654,4 @@ if __name__ == "__main__":
 
         cv2.resizeWindow('screen', 32 * screen_scale, 32 * screen_scale)
 
-    main(debug=debug, screen=screen, screen_scale=screen_scale)
+    main(debug=debug, screen=screen, screen_scale=screen_scale, sticky=sticky)

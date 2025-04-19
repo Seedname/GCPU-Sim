@@ -42,9 +42,6 @@ dir:       dc.b     0
 appleX:   dc.b    27
 appleY:   dc.b    15
 
-@ seed for random movement
-seed:   dc.b    0
-
 @ pointer to address of the screen array
 address:    dc.b    $00,$10
 
@@ -75,6 +72,14 @@ eraseMaskAddr:  dc.b    $00,$17
 
 @ pointers to the program
 programPointer: dc.b    $00,$00
+
+org $1800
+@ lookup table of 256 pre-generated random numbers (LFSR takes like 40 instructions, while this take 3)
+randomTable:    dc.b    $95,$DB,$EB,$6A,$72,$23,$1F,$BF,$8E,$34,$EC,$54,$62,$74,$6C,$BB,$AB,$EA,$61,$3B,$E4,$37,$5E,$7E,$9D,$49,$F1,$86,$D2,$8D,$60,$DD,$65,$68,$BE,$CB,$6E,$1B,$CA,$8C,$79,$82,$4E,$22,$97,$E8,$6B,$75,$87,$B2,$5D,$C3,$03,$6F,$41,$F0,$A3,$26,$0B,$39,$80,$12,$C7,$64,$C9,$2C,$3C,$15,$E9,$1E,$C1,$D7,$CD,$F3,$AA,$28,$F2,$9B,$B0,$4A,$29,$7B,$24,$35,$ED,$E3,$E1,$04,$0E,$3D,$FD,$98,$0C,$C4,$43,$D8,$33,$84,$D9,$A2,$3A,$A8,$2F,$DC,$D1,$53,$76,$C2,$F5,$81,$EF,$85,$01,$69,$D4,$D0,$99,$C8,$A6,$71,$2D,$17,$55,$07,$E2,$B5,$BD,$D3,$BA,$20,$A5,$E5,$47,$44,$FF,$4D,$BC,$FE,$4B,$0D,$36,$90,$9A,$6D,$5B,$30,$4F,$2A,$42,$1C,$A9,$66,$EE,$B6,$3F,$F8,$FB,$9E,$0F,$88,$2B,$B8,$46,$F4,$25,$16,$38,$AF,$F7,$9F,$D5,$13,$1D,$96,$00,$77,$AE,$CF,$A0,$CC,$10,$11,$1A,$02,$E0,$06,$C5,$94,$93,$A4,$5C,$21,$7F,$DE,$40,$AC,$08,$7D,$8F,$A7,$83,$8A,$7C,$DF,$E7,$48,$59,$19,$91,$57,$B4,$50,$DA,$2E,$4C,$52,$73,$3E,$92,$B3,$C0,$32,$B9,$7A,$5A,$89,$51,$FA,$56,$27,$AD,$58,$CE,$C6,$67,$0A,$B7,$14,$F9,$A1,$18,$B1,$63,$FC,$45,$78,$31,$F6,$E6,$70,$8B,$9C,$D6,$5F,$09,$05
+
+
+@ pointer to the random table
+seedAddress:    dc.b    $00,$18
 
 @ logic:
 @ 1. Spawn snake in the middle of the screen
@@ -219,10 +224,10 @@ gameLoop:
     @ tail pos = length % 256
 
     @ update the seed 
-    ldaa seed
+    ldaa seedAddress
     ldab #1
     sum_ba
-    staa seed
+    staa seedAddress
 
     ldaa dir
 
@@ -435,28 +440,26 @@ eatApple:
 
     @ next: make a new apple
 
-    @ read random program data cuz why not
-    ldaa seed
-    staa programPointer
-    ldx programPointer
-    
-    @ get random program data
+    @ use the seed to generate a pseudo random number generator
+    ldx seedAddress
     ldaa 0,x
-    
-    coma
-    shfa_l
-    shfa_l
-
-    ldab 1,x
-
-    or_ba
-
     staa address ; use that for screen byte
 
-    ldaa 2,x
+    @ increment the seed (wraps around to 0 if >= 256)    
+    ldaa seedAddress
+    ldab #1
+    sum_ba
+    staa seedAddress
+
+    @ get another random value
+    ldx seedAddress
+    ldaa 0,x
+    staa address
+
     ldab #3 ; get a number from 0 to 3 to get the pixel
     and_ab
 
+    @ use that for the mask
     stab appleMaskAddr
     ldx appleMaskAddr
     ldab 0,x ; get the pixel value for the apple
@@ -464,10 +467,17 @@ eatApple:
     ldx address
     ldaa 0,x ; get whats at the screen for the chosen address
 
-    or_ba ; add the apple to the screen
+    @ write the new apple to the screen
+    or_ba
 
     ldx address
     staa 0,x
+
+    @ increment the seed (wraps around to 0 if >= 256)    
+    ldaa seedAddress
+    ldab #1
+    sum_ba
+    staa seedAddress
 
     ldaa #0
     beq16 readKeys

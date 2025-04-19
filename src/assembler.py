@@ -283,7 +283,7 @@ BEGIN
 
 def main() -> None:
     path = pathlib.Path(__file__).parent
-    filename = path.joinpath("program", "program.asm")
+    filename = path.joinpath("program", "snake.asm")
     lines = read_asm(filename)
     process_asm(lines)
 
