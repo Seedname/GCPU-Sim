@@ -6,7 +6,7 @@ org $1000
 screen: ds.b    123 ; 0…122 all zeros
         dc.b    $55 ; byte 123: 01 01 01 01 (green in cols 12,13,14,15 of row 15)
         ds.b    2   ; 2 empty bytes
-        dc.b    $80 ; byte 124: 00 00 00 10 (red in col 27 of row 15)
+        dc.b    $02 ; byte 124: 00 00 00 10 (red in col 27 of row 15)
         ds.b    129 ; pad out to 256 bytes total
 
 org $1100

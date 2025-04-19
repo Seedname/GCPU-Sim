@@ -270,6 +270,8 @@ BEGIN
                 
 
     path = pathlib.Path(__file__).parent.joinpath('output')
+    path.mkdir(parents=True, exist_ok=True)
+    
     with open(path.joinpath('rom.mif'), 'w') as f:
         f.write(header)
         f.write(rom)
