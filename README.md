@@ -64,3 +64,4 @@ The Snake game is written in `program/snake.asm`. After assembling and running t
 
 - **Movement**: Use the arrow keys.
 - **Restart after Game Over**: Press any arrow key while on the score screen.
+- **Exit Program** Press "Q" to exit the game window and stop the program.
