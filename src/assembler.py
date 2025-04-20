@@ -3,7 +3,7 @@
 
 import re
 import pathlib
-# TODO: make this a cli tool, clean up the code
+# TODO: make this a cli tool, clean up the code, add debugger by adding another file that maps rom to labels & line numbers
 
 asm_map = {
     # Data Movement Instructions

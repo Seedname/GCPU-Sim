@@ -6,7 +6,7 @@ import pathlib
 import threading
 import time
 
-# TODO: add comments & docstrings, make into CLI tool or library?
+# TODO: add comments & docstrings, make into CLI tool, add debug options 
 
 class CPU:
     def __init__(self, rom: str = "rom.mif", ram: str = "ram.mif"):
@@ -61,7 +61,8 @@ class CPU:
             0x21: Instruction.bne,
             0x22: Instruction.bn,
             0x23: Instruction.bp,
-            # extra instruction I added (not part of G-CPU)
+
+            # extra instructions that I added (not part of G-CPU)
             0x24: Instruction.beq16,
             0x25: Instruction.bne16,
             0x26: Instruction.bn16,
@@ -109,12 +110,27 @@ class CPU:
         self.load_memory_file(rom, 0x0000)
         self.load_memory_file(ram, 0x1000)
 
-    def get_memory(self) -> int:
-        return self.memory[self.pc % 0x2000]
+    def get_memory(self, address: int = None) -> int:
+        if address is None:
+            if self.pc >= 0x2000:
+                raise ValueError("Program counter is out of bounds")
+            
+            return self.memory[self.pc]
+        
+        if address >= 0x2000:
+            raise ValueError("Memory address is out of bounds")
+        
+        return self.memory[address]
     
+    def write_memory(self, address: int, value: int) -> None:
+        if address < 0x1000:
+            raise ValueError("Cannot write to ROM")
+        
+        self.memory[address] = value
+        
     def inc_pc(self) -> None:
         self.pc += 1
-        self.pc %= 0x2000
+        self.pc &= 0xFFFF # trim to 16 bits
     
     def clock(self):
         instruction = self.get_memory()
@@ -122,8 +138,7 @@ class CPU:
         if instruction in self.instructions:
             self.instructions[instruction](self)
         else:
-            print(f"Unknown instruction: ${instruction:02X}")
-            exit(1)
+            raise ValueError(f"Unknown instruction: ${instruction:02X}")
 
 
 class Instruction:
@@ -154,7 +169,7 @@ class Instruction:
         upper = cpu.get_memory()
 
         address = (upper << 8) | lower
-        cpu.a = cpu.memory[address]
+        cpu.a = cpu.get_memory(address=address)
 
         cpu.inc_pc()
     
@@ -167,7 +182,7 @@ class Instruction:
         upper = cpu.get_memory()
 
         address = (upper << 8) | lower
-        cpu.b = cpu.memory[address]
+        cpu.b = cpu.get_memory(address=address)
 
         cpu.inc_pc()
     
@@ -180,7 +195,7 @@ class Instruction:
         upper = cpu.get_memory()
 
         address = (upper << 8) | lower
-        cpu.memory[address] = cpu.a
+        cpu.write_memory(address=address, value=cpu.a)
 
         cpu.inc_pc()
     
@@ -194,7 +209,7 @@ class Instruction:
 
         address = (upper << 8) | lower
 
-        cpu.memory[address] = cpu.b
+        cpu.write_memory(address=address, value=cpu.b)
 
         cpu.inc_pc()
 
@@ -234,8 +249,8 @@ class Instruction:
 
         address = (upper << 8) | lower
 
-        lower = cpu.memory[address]
-        upper = (cpu.memory[address + 1] << 8)
+        lower = cpu.get_memory(address)
+        upper = cpu.get_memory(address + 1) << 8
         cpu.x = lower | upper
 
         cpu.inc_pc()
@@ -250,8 +265,8 @@ class Instruction:
 
         address = (upper << 8) | lower
 
-        lower = cpu.memory[address]
-        upper = (cpu.memory[address + 1] << 8)
+        lower = cpu.get_memory(address)
+        upper = cpu.get_memory(address + 1) << 8
         cpu.y = lower | upper
 
         cpu.inc_pc()
@@ -259,49 +274,57 @@ class Instruction:
     def ldaax(cpu: CPU):
         cpu.inc_pc()
         displacement = cpu.get_memory()
-        cpu.a = cpu.memory[cpu.x + displacement]
+        address = (cpu.x + displacement) & 0xFFFF # trim to 16 bits
+        cpu.a = cpu.get_memory(address)
         cpu.inc_pc()
     
     def ldaay(cpu: CPU):
         cpu.inc_pc()
         displacement = cpu.get_memory()
-        cpu.a = cpu.memory[cpu.y + displacement]
+        address = (cpu.y + displacement) & 0xFFFF # trim to 16 bits
+        cpu.a = cpu.get_memory(address)
         cpu.inc_pc()
 
     def ldabx(cpu: CPU):
         cpu.inc_pc()
         displacement = cpu.get_memory()
-        cpu.b = cpu.memory[cpu.x + displacement]
+        address = (cpu.x + displacement) & 0xFFFF # trim to 16 bits
+        cpu.b = cpu.get_memory(address)
         cpu.inc_pc()
     
     def ldaby(cpu: CPU):
         cpu.inc_pc()
         displacement = cpu.get_memory()
-        cpu.b = cpu.memory[cpu.y + displacement]
+        address = (cpu.y + displacement) & 0xFFFF # trim to 16 bits
+        cpu.b = cpu.get_memory(address)
         cpu.inc_pc()
 
     def staax(cpu: CPU):
         cpu.inc_pc()
         displacement = cpu.get_memory()
-        cpu.memory[cpu.x + displacement] = cpu.a
+        address = (cpu.x + displacement) & 0xFFFF # trim to 16 bits
+        cpu.write_memory(address, cpu.a)
         cpu.inc_pc()
     
     def staay(cpu: CPU):
         cpu.inc_pc()
         displacement = cpu.get_memory()
-        cpu.memory[cpu.y + displacement] = cpu.a
+        address = (cpu.y + displacement) & 0xFFFF # trim to 16 bits
+        cpu.write_memory(address, cpu.a)
         cpu.inc_pc()
     
     def stabx(cpu: CPU):
         cpu.inc_pc()
         displacement = cpu.get_memory()
-        cpu.memory[cpu.x + displacement] = cpu.b
+        address = (cpu.x + displacement) & 0xFFFF # trim to 16 bits
+        cpu.write_memory(address, cpu.b)
         cpu.inc_pc()
     
     def staby(cpu: CPU):
         cpu.inc_pc()
         displacement = cpu.get_memory()
-        cpu.memory[cpu.y + displacement] = cpu.b
+        address = (cpu.y + displacement) & 0xFFFF # trim to 16 bits
+        cpu.write_memory(address, cpu.b)
         cpu.inc_pc()
 
     def sum_ba(cpu: CPU):
@@ -567,8 +590,6 @@ def register_keys(cpu: CPU, start: int = 0x1400, sticky: bool = False) -> thread
 
 
 def clock_cpu(cpu: CPU, debug: bool = False, step: bool = False) -> None:
-    target = time.perf_counter_ns()
-
     while True:
 
         if debug:
@@ -596,12 +617,6 @@ def clock_cpu(cpu: CPU, debug: bool = False, step: bool = False) -> None:
             time.sleep(0.001)
         else:
             input()
-        
-        # print([cpu.memory[0x1400 + i] for i in range(4)])
-            # while time.perf_counter_ns() <= target:
-            #     pass
-
-            # target = time.perf_counter_ns() + 1_000_000
 
 
 def main(debug: bool = False, screen: int = 0, screen_scale = 1, sticky: bool = False) -> None:
@@ -612,11 +627,9 @@ def main(debug: bool = False, screen: int = 0, screen_scale = 1, sticky: bool = 
         clock_cpu(cpu, debug, debug)
     else:
         clock_cpu_threaded = threading.Thread(target=clock_cpu, args=(cpu,debug,debug), daemon=True)
-        # register_keys_threaded = threading.Thread(target=register_keys, args=(cpu,), daemon=True)
         register_keys(cpu, start=0x1400, sticky=sticky)
         
         clock_cpu_threaded.start()
-        # register_keys_threaded.start()
         
         if screen == 1:
             display_screen(cpu,screen_scale=screen_scale)
@@ -634,7 +647,7 @@ if __name__ == "__main__":
             keyboard.Key.down: 2, 
             keyboard.Key.right: 3}
 
-    screen_scale = 15
+    screen_scale = 20
 
     debug = False
     screen = 2
