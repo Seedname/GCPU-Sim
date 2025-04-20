@@ -131,6 +131,8 @@ def process_asm(lines: list[str]) -> None:
                 match pnemonic:
                     case "org":
                         running_address = parse_number(argument)
+                        if label is not None:
+                            macros[label] = running_address
                         break
                     case "equ":
                         macros[label] = argument
@@ -167,8 +169,7 @@ def process_asm(lines: list[str]) -> None:
                         continue
 
                 break
-    
-    
+
     prev_running_address = running_address
 
     # second pass: labels to addresses

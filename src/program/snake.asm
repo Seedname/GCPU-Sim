@@ -150,9 +150,8 @@ digit9: dc.b    $FC,$CC,$CC,$FC,$0C,$0C,$0C,$FC
 
 digitPointer:   dc.b    $00,$1B
 
-main:
-    org 0
-
+@ set the program to start at 0 in rom
+org 0
 removeTail:
     @ remove the old tail
     ldaa tailPointer
