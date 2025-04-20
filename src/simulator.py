@@ -590,33 +590,28 @@ def register_keys(cpu: CPU, start: int = 0x1400, sticky: bool = False) -> thread
 
 
 def clock_cpu(cpu: CPU, debug: bool = False, step: bool = False) -> None:
+    start = time.perf_counter_ns()
+    clock_speed = 1_100
+    frame_time = 10**9 / clock_speed
+    
+    a = time.perf_counter()
+
     while True:
 
         if debug:
             display_info(cpu, memory_locations={
-                'addr': 0x130C,
-                'head': 0x1300,
-                'tail': 0x1301,
-
-                'xAddr':  0x1302,
-                'yAddr':  0x1304,
-
-                'tempX':  0x1305,
-                'tempY':  0x1306,
-                
-                'dir': 0x1307,
-
-                'sMask': 0x1504,
-                'aMask': 0x1506,
-                'eMask': 0x1508
+                # specify memory locations & names to debug here 
             })
         
         cpu.clock()
 
         if not step:
-            time.sleep(0.001)
+            while time.perf_counter_ns() < start:
+                pass
+            start += frame_time
         else:
             input()
+
 
 
 def main(debug: bool = False, screen: int = 0, screen_scale = 1, sticky: bool = False) -> None:
