@@ -647,7 +647,7 @@ if __name__ == "__main__":
             keyboard.Key.down: 2, 
             keyboard.Key.right: 3}
 
-    screen_scale = 20
+    screen_scale = 15
 
     debug = False
     screen = 2

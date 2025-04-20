@@ -31,7 +31,7 @@
 @    Fill the screen with the buffered score screen
 @    reset all values that need to be reset, 
 @    poll for user input to continue
-@    clear the screen then draw the snake and apple in the next seed location
+@    clear the screen then draw the snake and apple to the original locations
 
 @ the screen is mapped to $1000-$10FF
 @ each byte contains 4 pixels, 2 bits each, for 4 distinct colors
