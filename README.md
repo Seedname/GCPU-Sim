@@ -52,6 +52,7 @@ The main function in `simulator.py` supports several options:
   - `2` = 2-bit 32x32 color display mapped to the first 256 bytes of RAM (needed for `snake.asm`)
 - **screen_scale**: Scale the display window (default: 15).
 - **sticky**: The last key pressed stays down until another key is pressed (recommended: `True` for Snake).
+- **accurate_clocks**: Use a more performance-intensive, but much more accurate approach to timing clocks. (Option currently disabled on Windows because low-resolution timing leads to inconsistent frame times)
 
 You can adjust these options by editing the variables at the bottom of `simulator.py` before running.
 

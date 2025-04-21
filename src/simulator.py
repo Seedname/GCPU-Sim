@@ -5,6 +5,7 @@ from pynput import keyboard
 import pathlib
 import threading
 import time
+import platform
 
 # TODO: add comments & docstrings, make into CLI tool, add debug options 
 
@@ -589,12 +590,20 @@ def register_keys(cpu: CPU, start: int = 0x1400, sticky: bool = False) -> thread
     return listener
 
 
-def clock_cpu(cpu: CPU, debug: bool = False, step: bool = False) -> None:
+
+def clock_cpu(cpu: CPU, debug: bool = False, step: bool = False, accurate_clocks: bool = False) -> None:
+    # Disable on Windows 
+    if platform.system() == "Windows":
+        accurate_clocks = False
+
+
     start = time.perf_counter_ns()
     clock_speed = 1_100
-    frame_time = 10**9 / clock_speed
-    
-    a = time.perf_counter()
+
+    if accurate_clocks:
+        frame_time = 10**9 / clock_speed
+    else:
+        frame_time = 1 / clock_speed
 
     while True:
 
@@ -606,22 +615,25 @@ def clock_cpu(cpu: CPU, debug: bool = False, step: bool = False) -> None:
         cpu.clock()
 
         if not step:
-            while time.perf_counter_ns() < start:
-                pass
-            start += frame_time
+            if accurate_clocks:
+                while time.perf_counter_ns() < start:
+                    pass
+                start += frame_time
+            else:
+                time.sleep(frame_time)
         else:
             input()
 
 
 
-def main(debug: bool = False, screen: int = 0, screen_scale = 1, sticky: bool = False) -> None:
+def main(debug: bool = False, screen: int = 0, screen_scale = 1, sticky: bool = False, accurate_clocks: bool = False) -> None:
     path = pathlib.Path(__file__).parent.joinpath('output')
     cpu = CPU(rom=path.joinpath('rom.mif'), ram=path.joinpath('ram.mif'))
     
     if screen == 0:
         clock_cpu(cpu, debug, debug)
     else:
-        clock_cpu_threaded = threading.Thread(target=clock_cpu, args=(cpu,debug,debug), daemon=True)
+        clock_cpu_threaded = threading.Thread(target=clock_cpu, args=(cpu,debug,debug,accurate_clocks), daemon=True)
         register_keys(cpu, start=0x1400, sticky=sticky)
         
         clock_cpu_threaded.start()
@@ -647,6 +659,7 @@ if __name__ == "__main__":
     debug = False
     screen = 2
     sticky = True
+    accurate_clocks = False
 
     if screen != 0:
         cv2.namedWindow(
@@ -662,4 +675,4 @@ if __name__ == "__main__":
 
         cv2.resizeWindow('screen', 32 * screen_scale, 32 * screen_scale)
 
-    main(debug=debug, screen=screen, screen_scale=screen_scale, sticky=sticky)
+    main(debug=debug, screen=screen, screen_scale=screen_scale, sticky=sticky, accurate_clocks=accurate_clocks)
