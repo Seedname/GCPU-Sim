@@ -659,7 +659,7 @@ if __name__ == "__main__":
     debug = False
     screen = 2
     sticky = True
-    accurate_clocks = False
+    accurate_clocks = True
 
     if screen != 0:
         cv2.namedWindow(
