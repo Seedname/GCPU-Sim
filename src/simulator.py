@@ -85,7 +85,7 @@ class CPU:
                 
                 if start_loading and line:
                     # ranged memory
-                    ranged_memory = re.match(r"^\[([0-9A-Fa-f]+)\.\.([0-9A-Fa-f]+)\]\s*:\s*([0-9A-Fa-f]+);$", line)
+                    ranged_memory = re.match(r"^\[([0-9A-Fa-f]+)\.\.([0-9A-Fa-f]+)\]\s*\t*:\s*\t*([0-9A-Fa-f]+);.*$", line)
 
                     if ranged_memory:
                         start, end, value = ranged_memory.groups()
@@ -99,13 +99,14 @@ class CPU:
                         continue
                     
                     # single memory
-                    single_memory = re.match(r"^([0-9A-Fa-f]+)\s*:\s*([0-9A-Fa-f]+);$", line)
+                    single_memory = re.match(r"^([0-9A-Fa-f]+)\s*\t*:\s*\t*([0-9A-Fa-f]+);.*$", line)
                     if single_memory:
                         address, value = single_memory.groups()
                         address = int(address, 16)
                         value = int(value, 16)
 
                         self.memory[address + offset] = value
+
 
     def load_memory(self, rom: str, ram: str):
         self.load_memory_file(rom, 0x0000)
@@ -608,8 +609,9 @@ def clock_cpu(cpu: CPU, debug: bool = False, step: bool = False, accurate_clocks
     while True:
 
         if debug:
+            # memory_locs = {str(i): 0x1A37 + i for i in range(3)}
             display_info(cpu, memory_locations={
-                # specify memory locations & names to debug here 
+                # map memory locations to addresses here
             })
         
         cpu.clock()
