@@ -1,5 +1,6 @@
 lab7.asm
 *.mif
 *.png
+*.dbg
 test.py
 .vscode/

@@ -6,6 +6,8 @@ import pathlib
 import threading
 import time
 import platform
+import json
+from collections import OrderedDict
 
 # TODO: add comments & docstrings, make into CLI tool, add debug options 
 
@@ -490,7 +492,6 @@ class Instruction:
             cpu.inc_pc()
 
 
-
 def display_info(cpu: CPU, memory_locations: dict[str, int] = None) -> None:
     print("Expr\tValue\tMemory")
 
@@ -505,7 +506,6 @@ def display_info(cpu: CPU, memory_locations: dict[str, int] = None) -> None:
           f"Y:\t${cpu.y:04X}\t${cpu.memory[cpu.y]:02X}",
           f"{'\n'.join(locations)}\n",
           sep="\n")
-
 
 def display_screen(cpu: CPU, start: int = 0x1000, screen_scale: int = 1) -> bool:
     while True:
@@ -528,8 +528,6 @@ def display_screen(cpu: CPU, start: int = 0x1000, screen_scale: int = 1) -> bool
 
         if key == 'q':
             return True
-
-
 
 def display_screen_2bit(cpu: CPU, start: int = 0x1000, screen_scale: int = 1) -> bool:
     display_map = [(0, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 255)]
@@ -555,6 +553,18 @@ def display_screen_2bit(cpu: CPU, start: int = 0x1000, screen_scale: int = 1) ->
 
         if key == 'q':
             return True
+
+def register_mouse(cpu: CPU, screen_scale: int, start: int = 0x1405):
+    x_pos = start
+    y_pos = start + 1
+    event_pos = start + 2
+
+    def on_mouse(event, x, y, flags, param):
+        cpu.write_memory(x_pos, x // screen_scale)
+        cpu.write_memory(y_pos, y // screen_scale)
+        cpu.write_memory(event_pos, event)
+
+    cv2.setMouseCallback("screen", on_mouse)
 
 def register_keys(cpu: CPU, start: int = 0x1400, sticky: bool = False) -> threading.Thread:
     # TODO: fix memory leak with threads
@@ -583,16 +593,13 @@ def register_keys(cpu: CPU, start: int = 0x1400, sticky: bool = False) -> thread
         if not sticky:
             cpu.memory[start + idx] = 0
 
-    listener = keyboard.Listener(on_press=on_press,
-                                 on_release=on_release)
-    listener.daemon = True
-    listener.start()
+    keyboard.Listener(on_press=on_press, on_release=on_release).start()
 
-    return listener
+def load_symbols(symbol_file: str | pathlib.Path) -> dict[str, int]:
+    with open(symbol_file, 'r') as f:
+        return json.load(f)
 
-
-
-def clock_cpu(cpu: CPU, debug: bool = False, step: bool = False, accurate_clocks: bool = False) -> None:
+def clock_cpu(cpu: CPU, accurate_clocks: bool = False) -> None:
     # Disable on Windows 
     if platform.system() == "Windows":
         accurate_clocks = False
@@ -607,36 +614,171 @@ def clock_cpu(cpu: CPU, debug: bool = False, step: bool = False, accurate_clocks
         frame_time = 1 / clock_speed
 
     while True:
-
-        if debug:
-            # memory_locs = {str(i): 0x1A37 + i for i in range(3)}
-            display_info(cpu, memory_locations={
-                # map memory locations to addresses here
-            })
         
         cpu.clock()
 
-        if not step:
-            if accurate_clocks:
-                while time.perf_counter_ns() < start:
-                    pass
-                start += frame_time
-            else:
-                time.sleep(frame_time)
+        if accurate_clocks:
+            while time.perf_counter_ns() < start:
+                pass
+            start += frame_time
         else:
-            input()
+            time.sleep(frame_time)
+
+def parse_input(user_input: str):
+    patterns = [
+        r"^(?:s|step)$", # step to the next line of the program
+        r"^(?:s|step)\s+([0-9]+)$", # step next n lines of the program
+        r"^(?:r|run)$", # run from beginning until a breakpoint
+        r"^(?:c|continue)$", # continue until the next breakpoint
+
+        r"^(?:t|tap)\s+(\%[0-1]+|[0-9]+|\$[a-f0-9])$", # "tap" a spot in memory (prints it after each step / break)
+        r"^(?:t|tap)\s+([a-z0-9_]+)$", # "tap" a spot in memory thats mapped to a label
+
+        r"^(?:b|break|breakpoint)\s+(\%[0-1]+|[0-9]+|\$[a-f0-9]+)$", # breakpoint line number
+        r"^(?:b|break|breakpoint)\s+([a-z0-9_]+)$",  # breakpoint to label
+
+        r"^(?:i|info)\s+(?:b|breaks|breakpoints)$", # show the breakpoints and their ids
+        r"^(?:i|info)\s+(?:r|regs|registers)$", # show CPU registers
+        r"^(?:i|info)\s+(?:t|taps)$", # show taps
+
+        r"^(?:d|delete)\s+(?:b|break)\s+([0-9]+)", # delete a breakpoint based on its id
+        r"^(?:d|delete)\s+(?:t|tap)\s+([0-9]+)", # delete a tap based on its id
+    ]
+
+    for i, pattern in enumerate(patterns):
+        matches = re.match(pattern, user_input)
+        if matches:
+            return (i, *matches.groups())
+    
+    return None
 
 
+def print_taps(cpu: CPU, taps):
+    if len(taps) == 0:
+        return
+    
+    print("Id\tName\tLocs\tMemory")
+    for i, (name, loc) in enumerate(taps):
+        if name is None: name = ""
+        print(f"{i}\t{name}\t${loc:04X}\t${cpu.memory[loc]:02X}")
 
-def main(debug: bool = False, screen: int = 0, screen_scale = 1, sticky: bool = False, accurate_clocks: bool = False) -> None:
+def parse_number(num: str) -> int:
+    if num.startswith("$"):
+        return int(num[1:], 16)
+    elif num.startswith("%"):
+        return int(num[1:], 2)
+    
+    return int(num)
+
+def process_input(cpu: CPU, taps: list[tuple[str, int]], breaks: OrderedDict[int, str], symbols: dict[str, int], args):
+    match args[0]:
+        case 0: # step to the next line of the program
+            cpu.clock()
+            print_taps(cpu, taps)
+        case 1: # step next n lines of the program
+            times = int(args[1])
+            for _ in range(times):
+                cpu.clock()
+            print_taps(cpu, taps)
+        case 2: # run from beginning until a breakpoint
+            action = True
+            if cpu.pc != 0:
+                action = input("This action will restart the program. Are you sure? (y/N): ").lower().strip() == "y"
+                cpu.pc = 0
+
+            while action:
+                cpu.clock()
+                if cpu.pc in breaks:
+                    print(f"Stopped at line {cpu.pc:04X}. Breakpoint: {breaks[cpu.pc]}")
+                    break
+
+            if action:
+                print_taps(cpu, taps)
+        case 3: # continue until the next breakpoint
+            while True:
+                cpu.clock()
+                if cpu.pc in breaks:
+                    print(f"Stopped at line {cpu.pc:04X}. Breakpoint: {breaks[cpu.pc]}")
+                    break
+
+            print_taps(cpu, taps)
+        case 4: # "tap" a spot in memory (prints it after each step / break)
+            line = parse_number(args[1])
+            taps.append((None, line))
+        case 5: # "tap" a spot in memory thats mapped to a label
+            name = args[1]
+            if name in symbols:
+                taps.append((name, symbols[name]))
+            else:
+                print(f"No label with the name {name} found.")
+        case 6: # breakpoint line number
+            line = parse_number(args[1])
+            breaks[line] = f"${line:04X}"
+        case 7: # breakpoint to label
+            name = args[1]
+            if name in symbols:
+                line = symbols[name]
+                breaks[line] = name
+            else:
+                print(f"No label with the name {name} found.")
+        case 8: # show the breakpoints and their ids
+            print("Id\tName\tLocation")
+            for i, location in enumerate(breaks):
+                print(f"{i}\t{breaks[location]}\t${location:04X}")
+        case 9: # show CPU registers
+            print(f"A:\t${cpu.a:02X}\nB:\t${cpu.b:02X}",
+                  f"X:\t${cpu.x:04X}\t${cpu.memory[cpu.x]:02X}",
+                  f"Y:\t${cpu.y:04X}\t${cpu.memory[cpu.y]:02X}",
+                  sep="\n")
+        case 10: # show taps
+            print_taps(cpu, taps)
+        case 11: # delete a breakpoint based on its id
+            break_id = int(args[1])
+            if break_id < 0 or break_id >= len(breaks):
+                print("Not a valid breakpoint id.")
+            else:
+                for i, location in enumerate(breaks):
+                    if i == break_id:
+                        del breaks[location]
+                        break
+        case 12: # delete a tap based on its id
+            tap_id = int(args[1])
+            if tap_id < 0 or tap_id >= len(taps):
+                print("Not a valid tap id.")
+            else:
+                taps.pop(tap_id)
+
+def clock_cpu_debug(cpu: CPU) -> None:
+    taps = []
+    breaks = OrderedDict()
+    path = pathlib.Path(__file__).parent.joinpath('output')
+    symbols = load_symbols(path / "symbols.dbg")
+
+    while True:
+        user_input = input("(dbg) ")
+        parsed = parse_input(user_input.lower().strip())
+
+        if parsed is None:
+            print("Command not recognized.")
+            continue
+        
+        process_input(cpu, taps, breaks, symbols, parsed)
+
+def main(debug: bool = False, screen: int = 0, screen_scale: int = 1, sticky: bool = False, accurate_clocks: bool = False, io_address: int = None) -> None:
     path = pathlib.Path(__file__).parent.joinpath('output')
     cpu = CPU(rom=path.joinpath('rom.mif'), ram=path.joinpath('ram.mif'))
     
     if screen == 0:
         clock_cpu(cpu, debug, debug)
     else:
-        clock_cpu_threaded = threading.Thread(target=clock_cpu, args=(cpu,debug,debug,accurate_clocks), daemon=True)
-        register_keys(cpu, start=0x1400, sticky=sticky)
+        if debug:
+            clock_cpu_threaded = threading.Thread(target=clock_cpu_debug, args=(cpu,), daemon=True)
+        else:
+            clock_cpu_threaded = threading.Thread(target=clock_cpu, args=(cpu, accurate_clocks), daemon=True)
+        
+        if io_address is not None:
+            register_keys(cpu, start=io_address+3, sticky=sticky)
+            register_mouse(cpu, start=io_address, screen_scale=screen_scale)
         
         clock_cpu_threaded.start()
         
@@ -663,6 +805,8 @@ if __name__ == "__main__":
     sticky = True
     accurate_clocks = True
 
+    io_address = 0x1400
+
     if screen != 0:
         cv2.namedWindow(
             'screen',
@@ -677,4 +821,4 @@ if __name__ == "__main__":
 
         cv2.resizeWindow('screen', 32 * screen_scale, 32 * screen_scale)
 
-    main(debug=debug, screen=screen, screen_scale=screen_scale, sticky=sticky, accurate_clocks=accurate_clocks)
+    main(debug=debug, screen=screen, screen_scale=screen_scale, sticky=sticky, accurate_clocks=accurate_clocks, io_address=io_address)

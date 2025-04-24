@@ -94,10 +94,10 @@ dir:       dc.b     0
 address:    dc.b    $00,$10
 
 @ maps for arrow keys
-up:     equ     $1400
-left:   equ     $1401
-down:   equ     $1402
-right:  equ     $1403
+up:     equ     $1403
+left:   equ     $1404
+down:   equ     $1405
+right:  equ     $1406
 
 org $1500
 @ lookup table of snake bitmasks

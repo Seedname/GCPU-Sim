@@ -3,6 +3,7 @@
 
 import re
 import pathlib
+import json
 # TODO: make this a cli tool, clean up the code, add debugger by adding another file that maps rom to labels & line numbers
 
 asm_map = {
@@ -93,7 +94,7 @@ def read_asm(filename: str) -> list[str]:
 
     # remove empty lines and make everything lowercase
     lines = [line.lower().strip() for line in lines if line.strip()]
-
+    
     return lines
 
 def parse_number(num: str) -> int:
@@ -283,6 +284,8 @@ BEGIN
         f.write(ram)
         f.write("\nEND;\n")
 
+    with open(path.joinpath("symbols.dbg"), 'w') as f:
+        json.dump({name: parse_number(macros[name]) for name in macros}, f)
 
 def main() -> None:
     path = pathlib.Path(__file__).parent
