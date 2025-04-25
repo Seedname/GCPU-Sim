@@ -8,6 +8,7 @@ import time
 import platform
 import json
 from collections import OrderedDict
+import math
 
 # TODO: add comments & docstrings, make into CLI tool, add debug options 
 
@@ -491,6 +492,8 @@ class Instruction:
         else:
             cpu.inc_pc()
 
+run_program = True
+
 
 def display_info(cpu: CPU, memory_locations: dict[str, int] = None) -> None:
     print("Expr\tValue\tMemory")
@@ -508,7 +511,8 @@ def display_info(cpu: CPU, memory_locations: dict[str, int] = None) -> None:
           sep="\n")
 
 def display_screen(cpu: CPU, start: int = 0x1000, screen_scale: int = 1) -> bool:
-    while True:
+    global run_program
+    while run_program:
         for i in range(128):
             byte = cpu.memory[start + i]
             for j in range(8):
@@ -527,11 +531,19 @@ def display_screen(cpu: CPU, start: int = 0x1000, screen_scale: int = 1) -> bool
         key = chr(cv2.waitKey(1) & 0xFF)
 
         if key == 'q':
+            run_program = False
             return True
+        
+        if cv2.getWindowProperty('screen', cv2.WND_PROP_VISIBLE) < 1:
+            # window was closed manually
+            run_program = False
+            break
 
 def display_screen_2bit(cpu: CPU, start: int = 0x1000, screen_scale: int = 1) -> bool:
+    global run_program
+
     display_map = [(0, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 255)]
-    while True:
+    while run_program:
         for i in range(256):
             byte = cpu.memory[start + i]
             for j in range(0, 8, 2):
@@ -552,7 +564,13 @@ def display_screen_2bit(cpu: CPU, start: int = 0x1000, screen_scale: int = 1) ->
         key = chr(cv2.waitKey(1) & 0xFF)
 
         if key == 'q':
+            run_program = False
             return True
+        
+        if cv2.getWindowProperty('screen', cv2.WND_PROP_VISIBLE) < 1:
+            # window was closed manually
+            run_program = False
+            break
 
 def register_mouse(cpu: CPU, screen_scale: int, start: int = 0x1405):
     x_pos = start
@@ -597,25 +615,35 @@ def register_keys(cpu: CPU, start: int = 0x1400, sticky: bool = False) -> thread
 
 def load_symbols(symbol_file: str | pathlib.Path) -> dict[str, int]:
     with open(symbol_file, 'r') as f:
-        return json.load(f)
+        result = json.load(f)
+        lines = {int(key): value for key, value in result["lines"].items()}
+        return result["symbols"], lines
+    return {}, {}
 
-def clock_cpu(cpu: CPU, accurate_clocks: bool = False) -> None:
+def clock_cpu(cpu: CPU, accurate_clocks: bool = False, clock_speed: int = 1100) -> None:
     # Disable on Windows 
     if platform.system() == "Windows":
         accurate_clocks = False
 
 
     start = time.perf_counter_ns()
-    clock_speed = 1_100
+    clock_speed = clock_speed
 
     if accurate_clocks:
         frame_time = 10**9 / clock_speed
     else:
         frame_time = 1 / clock_speed
 
-    while True:
+    skip_checks = False
+
+    if clock_speed == math.inf:
+        skip_checks = True
+
+    while run_program:
         
         cpu.clock()
+
+        if skip_checks: continue
 
         if accurate_clocks:
             while time.perf_counter_ns() < start:
@@ -643,6 +671,14 @@ def parse_input(user_input: str):
 
         r"^(?:d|delete)\s+(?:b|break)\s+([0-9]+)", # delete a breakpoint based on its id
         r"^(?:d|delete)\s+(?:t|tap)\s+([0-9]+)", # delete a tap based on its id
+
+        r"^(?:l|ls|list)(?:\s+(?:l|labels))?$", # List the labels in the program
+        r"^(?:p|print)\s+(?:l|line)$", # Print the current line of the program
+
+        r"^save(?:\s+([a-z0-9_\-\.]+))?$", # Save the breakpoints & tags to a file (default = debug.json)
+        r"^load(?:\s+([a-z0-9_\-\.]+))?$", # load the breakpoints & tags from a file
+
+        r"^(?:q|exit)$", # exit debugger
     ]
 
     for i, pattern in enumerate(patterns):
@@ -670,16 +706,18 @@ def parse_number(num: str) -> int:
     
     return int(num)
 
-def process_input(cpu: CPU, taps: list[tuple[str, int]], breaks: OrderedDict[int, str], symbols: dict[str, int], args):
+def process_input(cpu: CPU, taps: list[tuple[str, int]], breaks: OrderedDict[int, str], symbols: dict[str, int], lines: dict[int, tuple[int, str]], args):
     match args[0]:
         case 0: # step to the next line of the program
             cpu.clock()
             print_taps(cpu, taps)
+
         case 1: # step next n lines of the program
             times = int(args[1])
             for _ in range(times):
                 cpu.clock()
             print_taps(cpu, taps)
+
         case 2: # run from beginning until a breakpoint
             action = True
             if cpu.pc != 0:
@@ -694,6 +732,7 @@ def process_input(cpu: CPU, taps: list[tuple[str, int]], breaks: OrderedDict[int
 
             if action:
                 print_taps(cpu, taps)
+
         case 3: # continue until the next breakpoint
             while True:
                 cpu.clock()
@@ -702,18 +741,28 @@ def process_input(cpu: CPU, taps: list[tuple[str, int]], breaks: OrderedDict[int
                     break
 
             print_taps(cpu, taps)
+
         case 4: # "tap" a spot in memory (prints it after each step / break)
             line = parse_number(args[1])
             taps.append((None, line))
+
         case 5: # "tap" a spot in memory thats mapped to a label
             name = args[1]
             if name in symbols:
                 taps.append((name, symbols[name]))
             else:
                 print(f"No label with the name {name} found.")
+
         case 6: # breakpoint line number
-            line = parse_number(args[1])
-            breaks[line] = f"${line:04X}"
+            break_line = parse_number(args[1])
+            for rom_line in lines:
+                if rom_line not in lines:
+                    continue
+                physical_line = lines[rom_line][0]
+                if physical_line == break_line:
+                    breaks[rom_line] = f"${break_line:04X}"
+                    break
+
         case 7: # breakpoint to label
             name = args[1]
             if name in symbols:
@@ -721,17 +770,24 @@ def process_input(cpu: CPU, taps: list[tuple[str, int]], breaks: OrderedDict[int
                 breaks[line] = name
             else:
                 print(f"No label with the name {name} found.")
+
         case 8: # show the breakpoints and their ids
-            print("Id\tName\tLocation")
+            if len(breaks) != 0:
+                print("Id\tName\tLocation")
             for i, location in enumerate(breaks):
                 print(f"{i}\t{breaks[location]}\t${location:04X}")
+
         case 9: # show CPU registers
-            print(f"A:\t${cpu.a:02X}\nB:\t${cpu.b:02X}",
-                  f"X:\t${cpu.x:04X}\t${cpu.memory[cpu.x]:02X}",
-                  f"Y:\t${cpu.y:04X}\t${cpu.memory[cpu.y]:02X}",
-                  sep="\n")
+            print("Expr\tValue\tMemory")
+            print(f"PC:\t${cpu.pc:04X}\t${cpu.memory[cpu.pc]:02X}",
+                f"A:\t${cpu.a:02X}\nB:\t${cpu.b:02X}",
+                f"X:\t${cpu.x:04X}\t${cpu.memory[cpu.x]:02X}",
+                f"Y:\t${cpu.y:04X}\t${cpu.memory[cpu.y]:02X}",
+                sep="\n")
+            
         case 10: # show taps
             print_taps(cpu, taps)
+
         case 11: # delete a breakpoint based on its id
             break_id = int(args[1])
             if break_id < 0 or break_id >= len(breaks):
@@ -741,6 +797,7 @@ def process_input(cpu: CPU, taps: list[tuple[str, int]], breaks: OrderedDict[int
                     if i == break_id:
                         del breaks[location]
                         break
+
         case 12: # delete a tap based on its id
             tap_id = int(args[1])
             if tap_id < 0 or tap_id >= len(taps):
@@ -748,23 +805,62 @@ def process_input(cpu: CPU, taps: list[tuple[str, int]], breaks: OrderedDict[int
             else:
                 taps.pop(tap_id)
 
+        case 13: # List the labels in the program
+            print("Labels:", ", ".join(symbols.keys()))
+
+        case 14: # Print the current line of the program 
+            print(f"Line {lines[cpu.pc][0]}: {lines[cpu.pc][1]}")
+
+        case 15: # Save the breakpoints & taps to a file (default = debug.json)
+            name = args[1]
+            if args[1] is None:
+                name = "debug.json"
+            file = pathlib.Path(__file__).parent / name
+
+            with open(file, 'w') as f:
+                json.dump({"breaks": breaks, "taps": taps}, f)
+
+        case 16: # load the breakpoints & taps from a file (default = debug.json)
+            name = args[1]
+            if args[1] is None:
+                name = "debug.json"
+            file = pathlib.Path(__file__).parent / name
+            if not file.exists():
+                print(f"File {file.name} not found.")
+            else:
+                with open(file, 'r') as f:
+                    result = json.load(f)
+                breaks.clear()
+                breaks.update({int(key): value for key, value in result["breaks"].items()})
+                taps.clear()
+                taps.extend(result["taps"])
+        case 17:
+            # exit program
+            return True
+    
+    return False
+
+
+
 def clock_cpu_debug(cpu: CPU) -> None:
+    global run_program
     taps = []
     breaks = OrderedDict()
     path = pathlib.Path(__file__).parent.joinpath('output')
-    symbols = load_symbols(path / "symbols.dbg")
+    symbols, lines = load_symbols(path / "symbols.dbg")
 
-    while True:
+    while run_program:
         user_input = input("(dbg) ")
         parsed = parse_input(user_input.lower().strip())
-
         if parsed is None:
             print("Command not recognized.")
             continue
         
-        process_input(cpu, taps, breaks, symbols, parsed)
+        if process_input(cpu, taps, breaks, symbols, lines, parsed):
+            run_program = False
+            break
 
-def main(debug: bool = False, screen: int = 0, screen_scale: int = 1, sticky: bool = False, accurate_clocks: bool = False, io_address: int = None) -> None:
+def main(debug: bool = False, screen: int = 0, screen_scale: int = 1, sticky: bool = False, accurate_clocks: bool = False, clock_speed: int = 1100, io_address: int = None) -> None:
     path = pathlib.Path(__file__).parent.joinpath('output')
     cpu = CPU(rom=path.joinpath('rom.mif'), ram=path.joinpath('ram.mif'))
     
@@ -774,7 +870,7 @@ def main(debug: bool = False, screen: int = 0, screen_scale: int = 1, sticky: bo
         if debug:
             clock_cpu_threaded = threading.Thread(target=clock_cpu_debug, args=(cpu,), daemon=True)
         else:
-            clock_cpu_threaded = threading.Thread(target=clock_cpu, args=(cpu, accurate_clocks), daemon=True)
+            clock_cpu_threaded = threading.Thread(target=clock_cpu, args=(cpu, accurate_clocks, clock_speed), daemon=True)
         
         if io_address is not None:
             register_keys(cpu, start=io_address+3, sticky=sticky)
@@ -801,9 +897,10 @@ if __name__ == "__main__":
     screen_scale = 15
 
     debug = False
-    screen = 2
+    screen = 1
     sticky = True
     accurate_clocks = True
+    clock_speed = math.inf
 
     io_address = 0x1400
 
@@ -821,4 +918,4 @@ if __name__ == "__main__":
 
         cv2.resizeWindow('screen', 32 * screen_scale, 32 * screen_scale)
 
-    main(debug=debug, screen=screen, screen_scale=screen_scale, sticky=sticky, accurate_clocks=accurate_clocks, io_address=io_address)
+    main(debug=debug, screen=screen, screen_scale=screen_scale, sticky=sticky, accurate_clocks=accurate_clocks, clock_speed=clock_speed, io_address=io_address)

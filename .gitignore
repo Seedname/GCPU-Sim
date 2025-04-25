@@ -4,3 +4,4 @@ lab7.asm
 *.dbg
 test.py
 .vscode/
+debug.json

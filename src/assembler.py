@@ -81,19 +81,22 @@ def read_asm(filename: str) -> list[str]:
     # remove comments
     lines = [re.sub(r';.*|@.*', '', line).strip() for line in lines]
     
+    # pack lines
+    lines = [(line, (i+1, line)) for i, line in enumerate(lines)]
+
     # remove empty lines
-    lines = [line for line in lines if line.strip()]
+    lines = [(line, original) for line, original in lines if line.strip()]
 
     # merge labels with instructions
-    for i, line in enumerate(lines):
+    for i, (line, original) in enumerate(lines):
         if line.endswith(':'):
             # If the line ends with a colon, it's a label
-            lines[i+1] = line + ' ' + lines[i+1]
+            lines[i+1] = (line + ' ' + lines[i+1][0], lines[i+1][1])
             # make label empty to remove it
-            lines[i] = ""
+            lines[i] = ("", "")
 
     # remove empty lines and make everything lowercase
-    lines = [line.lower().strip() for line in lines if line.strip()]
+    lines = [(line.lower().strip(), original) for line, original in lines if line.strip()]
     
     return lines
 
@@ -120,9 +123,9 @@ def process_asm(lines: list[str]) -> None:
     running_address = 0x0000
     
     # first pass: assembler directives
-    for line_num, line in enumerate(lines):
+    for line_num, (line, original) in enumerate(lines):
         label, instruction = re.match(instruction_format, line).groups()
-        
+
         for format in asm_directives:
             matches = re.match(format, instruction)
             if matches:
@@ -174,7 +177,7 @@ def process_asm(lines: list[str]) -> None:
     prev_running_address = running_address
 
     # second pass: labels to addresses
-    for line_num, line in enumerate(lines):
+    for line_num, (line, original) in enumerate(lines):
         label, instruction = re.match(instruction_format, line).groups()
         
         for format in asm_map:
@@ -191,7 +194,8 @@ def process_asm(lines: list[str]) -> None:
     running_address = prev_running_address
 
     # third pass: assemble
-    for line_num, line in enumerate(lines):
+    original_lines = {}
+    for line_num, (line, original) in enumerate(lines):
         label, instruction = re.match(instruction_format, line).groups()
 
         for format in asm_map:
@@ -214,6 +218,8 @@ def process_asm(lines: list[str]) -> None:
                     operand_bytes = int.to_bytes(operands[0], byteorder='little', length=2)
                     memory[running_address + 1] = operand_bytes[0]
                     memory[running_address + 2] = operand_bytes[1]
+                
+                original_lines[running_address] = original
 
                 running_address += len(opcode)
                 break
@@ -285,11 +291,13 @@ BEGIN
         f.write("\nEND;\n")
 
     with open(path.joinpath("symbols.dbg"), 'w') as f:
-        json.dump({name: parse_number(macros[name]) for name in macros}, f)
+        symbols = {name: parse_number(macros[name]) for name in macros}
+        json.dump({"symbols": symbols, "lines": original_lines}, f)
+
 
 def main() -> None:
     path = pathlib.Path(__file__).parent
-    filename = path.joinpath("program", "snake.asm")
+    filename = path.joinpath("program", "game-of-life.asm")
     lines = read_asm(filename)
     process_asm(lines)
 

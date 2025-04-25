@@ -22,11 +22,14 @@ right:      equ     $1406
 org $1000
 screen:         ds.b    128
 screenPointer:  dc.b    $00,$10
-currentPixel:   dc.b    $00,$10
 
 tempX:          ds.b    1
 tempY:          ds.b    1
 origY:          ds.b    1
+
+currX:          ds.b    1
+currY:          ds.b    1
+
 neighbors:      ds.b    1
 count:          ds.b    1
 tempMask:       ds.b    1
@@ -140,27 +143,16 @@ runGameOfLife:
 
     ; store the neighbor count in neighbors
     ldaa #0
-    staa currentPixel
+    staa currX
+    staa currY
 
 startCycle:
-    ; convert current pixel to x and y
-    ldaa currentPixel
-    tab ; copy to b
-    shfa_r
-    shfa_r ; divide by 4 to get the y
-    staa tempY
-
-    ldaa #31
-    and_ab ; pixel % 32 to get the x
-    stab tempX
-
     ; reset the variables
     ldaa #0 
     staa neighbors
-    ldaa #9
-    staa count ; load count with 9
+    staa count ; load count with 0
 
-    ldaa tempY
+    ldaa currY
 
     ; subtract 1 from y
 
@@ -171,7 +163,7 @@ startCycle:
     staa tempY ; update Y
     staa origY ; store the original y position to jump back to later
 
-    ldaa tempX
+    ldaa currX
 
     ; subtract 1 from x
 
@@ -264,12 +256,28 @@ moveRight:
 
 getNextState:
     ; here, we need to use the neighbors variable to determine the outcome of our cell
-    ldaa currentPixel
-    ldab #7 
-    and_ab ; do currentPixel % 8 to get the mask
-    stab maskPointer
+    ldaa currY
+    ; multiply tempY by 4 to get the row
+    shfa_l
+    shfa_l
+    
+    ; divide tempX by 8 to get the offset
+    ldab currX
+    shfb_r
+    shfb_r
+    shfb_r
 
-    ldx currentPixel
+    sum_ba ; add a and b to get the byte
+
+    staa screenPointer ; store this to the screen pointer
+    
+    ldaa currX
+    ldab #07
+    and_ba ; this will get the last 3 bits of the currX (currX % 8)
+    staa maskPointer
+
+    ldx screenPointer
+    ldy maskPointer
     ldaa 0,x ; load a with the value at the pixel
     ldab 0,y ; load b with the mask of the pixel
 
@@ -300,14 +308,15 @@ alivePixel:
     bne16 setToZero ; otherwise, set it to 0.
 
 setToOne:
+    ; copy the current pixel to the buffer pointer
+    ldab screenPointer
+    stab bufferPointer
+
+    ldx bufferPointer
     ldaa 0,x ; load a with the value at the pixel
     ldab 0,y ; load b with the mask of the pixel
     or_ba ; add the pixel to the buffer
 
-    ; copy the current pixel to the buffer pointer
-    ldab currentPixel
-    stab bufferPointer
-    ldx bufferPointer
     ; store the new result at the buffer
     staa 0,x
 
@@ -315,15 +324,16 @@ setToOne:
     beq16 nextPixel
 
 setToZero:
+    ; copy the current pixel to the buffer pointer
+    ldab screenPointer
+    stab bufferPointer
+    ldx bufferPointer
+
     ldaa 0,x ; load a with the value at the pixel
     ldab 0,y ; load b with the mask of the pixel
     comb ; take the complement of b
     and_ba ; remove the pixel from the screen
 
-    ; copy the current pixel to the buffer pointer
-    ldab currentPixel
-    stab bufferPointer
-    ldx bufferPointer
     ; store the new result at the buffer
     staa 0,x
 
@@ -332,14 +342,22 @@ setToZero:
 
 nextPixel:
     ; increment the current pixel
-    ldaa currentPixel
+    ldaa currX
     ldab #1
     sum_ba
-    staa currentPixel
-    ldab #127 ; and it with 127 to get pixel % 127
+    ldab #31
     and_ba
-    beq16 copyBuffer ; if we reached the end, copy the buffer to the screen
-    bne16 startCycle ; else, continue
+    staa currX
+    bne16 startCycle
+
+moveDown:
+    ldaa currY
+    ldab #1
+    sum_ba
+    ldab #31
+    and_ba
+    staa currY
+    bne16 startCycle
 
 copyBuffer:
     @ load screen and buffer pointers, initialize a at 0
