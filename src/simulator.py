@@ -865,7 +865,7 @@ def main(debug: bool = False, screen: int = 0, screen_scale: int = 1, sticky: bo
     cpu = CPU(rom=path.joinpath('rom.mif'), ram=path.joinpath('ram.mif'))
     
     if screen == 0:
-        clock_cpu(cpu, debug, debug)
+        clock_cpu(cpu, accurate_clocks, clock_speed)
     else:
         if debug:
             clock_cpu_threaded = threading.Thread(target=clock_cpu_debug, args=(cpu,), daemon=True)
