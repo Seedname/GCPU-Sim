@@ -34,6 +34,9 @@ neighbors:      ds.b    1
 count:          ds.b    1
 tempMask:       ds.b    1
 
+nextNeighbors1:  ds.b   1
+nextNeighbors2:  ds.b   1
+
 ; lookup table for bitmasks
 org $1100
 maskTable:      dc.b    $80,$40,$20,$10,$08,$04,$02,$01
@@ -145,13 +148,10 @@ runGameOfLife:
     ldaa #0
     staa currX
     staa currY
+    staa nextNeighbors1 ; set next neighbors to 0
+    staa nextNeighbors2
 
 startCycle:
-    ; reset the variables
-    ldaa #0 
-    staa neighbors
-    staa count ; load count with 0
-
     ldaa currY
 
     ; subtract 1 from y
@@ -172,6 +172,41 @@ startCycle:
     ldab #31
     and_ba ; clip to 32
     staa tempX ; update X
+
+    ; if we arent in the first row, we can use the calculated neighbors for the left column
+    ldaa currX
+    beq16 dontSkip ; we are in the first row, dont skip
+
+    ldaa tempX ; increase tempX by 2
+    ldab #2
+    sum_ba
+    ldab #31
+    and_ba ; clip to 0-31
+    staa tempX
+
+    ldaa #6 ; set count to 6
+    staa count
+
+    ldaa nextNeighbors1
+    ldab nextNeighbors2
+    sum_ab
+    stab neighbors ; set the neighbors to the sum pre-calculated nextNeighbors
+
+    ; move nextNeighbors1 to nextNeighbors2
+    ; move 0 to nextNeighbors1
+    staa nextNeighbors2
+    ldaa #0
+    staa nextNeighbors1
+
+    beq16 getState ; continue to next state
+
+dontSkip:
+    ; reset the variables
+    ldaa #0 
+    staa neighbors
+    staa count ; load count with 0
+    staa nextNeighbors1
+    staa nextNeighbors2
 
     ; next, we need to go over all the neighbors and update the neighbors variable
 getState:
@@ -211,6 +246,38 @@ getState:
     ldab #1
     sum_ba
     staa neighbors ; add 1 to neighbors
+
+    ; if count is 6, 7, or 8, add to nextNeighbors1
+    ldaa count
+    ldab #$FA ; negative 6
+    sum_ba
+    
+    ; if this is negative, check the next one
+    bn16 checkNext
+
+    ; else, add 1 to nextNeighbors1
+    ldaa nextNeighbors1
+    ldab #1
+    sum_ba
+    staa nextNeighbors1
+    
+    ldaa #0
+    beq16 continue
+
+checkNext:
+    ; if count is 3, 4, or 5, add to nextNeighbors2
+    ldaa count
+    ldab #$FD ; negative 3
+    sum_ba
+
+    ; if this is negative, don't add anything
+    bn16 continue
+
+    ; else, add 1 to nextNeighbors2
+    ldaa nextNeighbors2
+    ldab #1
+    sum_ba
+    staa nextNeighbors2
 
 continue:
     ; increment counter
@@ -379,4 +446,4 @@ fillScreen:
 
     @ if a is 0, it wrapped around when it hit 256, meaning we reached the end of the arrays (because we're adding 2)
     bne16 fillScreen
-    beq16 runGameOfLife
+    beq16 readKeys

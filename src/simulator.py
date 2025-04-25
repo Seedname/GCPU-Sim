@@ -678,7 +678,7 @@ def parse_input(user_input: str):
         r"^save(?:\s+([a-z0-9_\-\.]+))?$", # Save the breakpoints & tags to a file (default = debug.json)
         r"^load(?:\s+([a-z0-9_\-\.]+))?$", # load the breakpoints & tags from a file
 
-        r"^(?:q|exit)$", # exit debugger
+        r"^(?:q|quit|exit)$", # exit debugger
     ]
 
     for i, pattern in enumerate(patterns):
@@ -830,8 +830,13 @@ def process_input(cpu: CPU, taps: list[tuple[str, int]], breaks: OrderedDict[int
             else:
                 with open(file, 'r') as f:
                     result = json.load(f)
+
                 breaks.clear()
-                breaks.update({int(key): value for key, value in result["breaks"].items()})
+                for break_num in result["breaks"]:
+                    breakpoint: str = result["breaks"][break_num]
+                    if breakpoint.isnumeric() or breakpoint.startswith("$") or breakpoint.startswith("%"): continue
+                    if breakpoint in symbols:
+                        breaks[symbols[breakpoint]] = breakpoint
                 taps.clear()
                 taps.extend(result["taps"])
         case 17:
@@ -865,7 +870,10 @@ def main(debug: bool = False, screen: int = 0, screen_scale: int = 1, sticky: bo
     cpu = CPU(rom=path.joinpath('rom.mif'), ram=path.joinpath('ram.mif'))
     
     if screen == 0:
-        clock_cpu(cpu, accurate_clocks, clock_speed)
+        if debug:
+            clock_cpu_debug(cpu)
+        else:
+            clock_cpu(cpu, accurate_clocks, clock_speed)
     else:
         if debug:
             clock_cpu_threaded = threading.Thread(target=clock_cpu_debug, args=(cpu,), daemon=True)
